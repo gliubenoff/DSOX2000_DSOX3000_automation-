@@ -61,7 +61,7 @@ class Oscilloscope:
 
 class I2C(Oscilloscope):
 
-    def prepare_unit_for_i2c(self):
+    def set_unit_for_i2c(self):
         # set oscilloscope
         # setup oscilloscope or this particular test
         # setting oscilloscope channels common settings
@@ -92,8 +92,8 @@ class I2C(Oscilloscope):
         # set the time reference to one division from the left side of the screen:
         self.send(':TIMebase:REFerence RIGHt')                   # options: LEFT | CENTer | RIGHt
 
-    def trig_start_condition(self):
-        # self.prepare_unit_for_i2c()
+    def set_trig_i2c_start(self):
+        # self.set_unit_for_i2c()
         # but update the timebase reference:
         self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
 
@@ -116,9 +116,9 @@ class I2C(Oscilloscope):
 
         self.send(':RUN')
 
-    def trig_repeated_start_sbus(self):
+    def set_trig_i2c_restart_sbus(self):
 
-        self.prepare_unit_for_i2c()
+        self.set_unit_for_i2c()
         # but update the timebase reference:
         self.send(':TIMebase:REFerence LEFT')   # options: LEFT | CENTer | RIGHt
 
@@ -130,9 +130,9 @@ class I2C(Oscilloscope):
         self.send(':SBUS1:IIC:TRIGger:TYPE RESTart')
         # RESTart — Another start condition occurs before a stop condition.
 
-    def trig_repeated_start(self):
+    def set_trig_i2c_restart(self):
 
-        self.prepare_unit_for_i2c()
+        self.set_unit_for_i2c()
         # but update the timebase reference:
         self.send(':TIMebase:REFerence CENTer')   # options: LEFT | CENTer | RIGHt
 
@@ -144,8 +144,8 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:GLITch:QUALifier RANGe')
         self.send(':TRIGger:GLITch:RANGe 1.1us,520ns')
 
-    def trig_stop_condition(self, save_to, file):
-        self.prepare_unit_for_i2c()
+    def set_trig_i2c_stop(self):
+        self.set_unit_for_i2c()
         # but update timebase reference:
         self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
 
@@ -155,7 +155,6 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:EDGE:SOURce CHANnel2')
         self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
         # set the correct pattern trigger settings:
-        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1RXX"')                    # I2C Stop
@@ -168,26 +167,24 @@ class I2C(Oscilloscope):
 
         self.send(':RUN')
 
-    def rise_time(self, save_to, file):
-        self.prepare_unit_for_i2c()
-
+    def set_trig_i2c_sda_bit(self):
         # set trigger
-        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE GLITch')
         self.send(':TRIGger:GLITch:SOURce CHANnel2')
         self.send(':TRIGger:GLITch:LEVel 1')
         self.send(':TRIGger:GLITch:POLarity POSitive')
         self.send(':TRIGger:GLITch:LESSthan 1.1us')
 
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        unit_triggered = int(self.query(':TER?'))   # read trigger event register to clear it
+        sleep(1)
+
+    def set_meas_rise_times(self, save_to, file):
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:RISetime CHANnel1')
         self.send(':MEASure:RISetime CHANnel2')
-        sleep(1)
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))   # read trigger event register to clear it
         sleep(1)
 
         while True:
@@ -204,17 +201,7 @@ class I2C(Oscilloscope):
 
         self.send(':RUN')
 
-    def fall_time(self, save_to, file):
-        self.prepare_unit_for_i2c()
-
-        # set trigger
-        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
-        self.send(':TRIGger:MODE GLITch')
-        self.send(':TRIGger:GLITch:SOURce CHANnel2')
-        self.send(':TRIGger:GLITch:LEVel 1')
-        self.send(':TRIGger:GLITch:POLarity POSitive')
-        self.send(':TRIGger:GLITch:LESSthan 1.1us')
-
+    def set_meas_fall_times(self, save_to, file):
         # set the measurements
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
@@ -241,8 +228,8 @@ class I2C(Oscilloscope):
 
         self.send(':RUN')
 
-    def rise_fall_time(self, save_to, file):
-        self.prepare_unit_for_i2c()
+    def set_meas_rise_fall_times(self, save_to, file):
+        self.set_unit_for_i2c()
 
         # set trigger
         # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
@@ -279,18 +266,10 @@ class I2C(Oscilloscope):
 
         self.send(':RUN')
 
-    def signal_levels(self, driver, save_to, file):
-        self.prepare_unit_for_i2c()
+    def meas_signal_levels(self, driver, save_to, file):
+        self.set_unit_for_i2c()
 
-        # # set trigger
-        # # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
-        # self.send(':TRIGger:MODE GLITch')
-        # self.send(':TRIGger:GLITch:SOURce CHANnel2')
-        # self.send(':TRIGger:GLITch:LEVel 1')
-        # self.send(':TRIGger:GLITch:POLarity POSitive')
-        # self.send(':TRIGger:GLITch:LESSthan 1.1us')
-
-        self.trig_start_condition()
+        self.set_trig_i2c_start()
 
         if driver == 'master':
             self.send(':MEASure:CLEar')
@@ -331,3 +310,9 @@ class I2C(Oscilloscope):
         self.get_screen(file, save_to)
 
         self.send(':RUN')
+
+    def meas_sck_freq_duty(self, save_to, file):
+        self.set_unit_for_i2c()
+        # update
+
+        self.set_trig_i2c_start()
