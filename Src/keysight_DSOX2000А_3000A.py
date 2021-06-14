@@ -2,6 +2,7 @@
 # based on article https://oshgarage.com/keysight-automation-with-python/
 import pyvisa as visa
 from time import sleep
+import sys
 
 
 class Oscilloscope:
@@ -28,9 +29,9 @@ class Oscilloscope:
         # # When you perform a default setup, some user settings (like preferences) remain unchanged.
 
         # basic settings:
-        self.send(':RUN')
         self.send(':SAVE:IMAGe:FORMat PNG')
         self.send(':SAVE:IMAGe:FACTors 0')
+        self.send(':RUN')
 
     def get_screen(self, filename, path):
         filepath = path + filename
@@ -85,16 +86,93 @@ class I2C(Oscilloscope):
 
         # setting X parameters
         self.send(':TIMebase:MODE MAIN')                        # timebase mode: MAIN, WINDow, XY, ROLL
+        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         # set 250ns/div for 1MHz bit time
         self.send(':TIMebase:SCALe 0.00000025')                 # units/div [sec]; main window horizontal scale
         # set the time reference to one division from the left side of the screen:
         self.send(':TIMebase:REFerence RIGHt')                   # options: LEFT | CENTer | RIGHt
 
+    def trig_start_condition(self):
+        # self.prepare_unit_for_i2c()
+        # but update the timebase reference:
+        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
+
+        # set trigger
+        # dummy set edge trigger to do magic settings...
+        self.send(':TRIGger:MODE EDGE')
+        self.send(':TRIGger:EDGE:SOURce CHANnel2')
+        self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
+        # set the correct pattern trigger settings:
+        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
+        self.send(':TRIGger:PATTern:FORMat ASCII')
+        self.send(':TRIGger:PATTern "1FXX"')                    # I2C Start or Repeated Start condition
+        self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
+        sleep(1)
+
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
+        sleep(1)
+
+        self.send(':RUN')
+
+    def trig_repeated_start_sbus(self):
+
+        self.prepare_unit_for_i2c()
+        # but update the timebase reference:
+        self.send(':TIMebase:REFerence LEFT')   # options: LEFT | CENTer | RIGHt
+
+        # trigger scope with IIC protocol analyzer
+        self.send(':TRIGger:MODE SBUS1')
+        self.send(':SBUS1:MODE IIC')
+        self.send(':SBUS1:IIC:SOURce:CLOCk CHANNel1')
+        self.send(':SBUS1:IIC:SOURce:DATA  CHANNel2')
+        self.send(':SBUS1:IIC:TRIGger:TYPE RESTart')
+        # RESTart — Another start condition occurs before a stop condition.
+
+    def trig_repeated_start(self):
+
+        self.prepare_unit_for_i2c()
+        # but update the timebase reference:
+        self.send(':TIMebase:REFerence CENTer')   # options: LEFT | CENTer | RIGHt
+
+        # set trigger
+        self.send(':TRIGger:MODE GLITch')
+        self.send(':TRIGger:GLITch:LEVel 1')
+        self.send(':TRIGger:GLITch:SOURce CHANnel1')
+        self.send(':TRIGger:GLITch:POLarity POSitive')
+        self.send(':TRIGger:GLITch:QUALifier RANGe')
+        self.send(':TRIGger:GLITch:RANGe 1.1us,520ns')
+
+    def trig_stop_condition(self, save_to, file):
+        self.prepare_unit_for_i2c()
+        # but update timebase reference:
+        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
+
+        # set trigger
+        # dummy set edge trigger to do magic settings...
+        self.send(':TRIGger:MODE EDGE')
+        self.send(':TRIGger:EDGE:SOURce CHANnel2')
+        self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
+        # set the correct pattern trigger settings:
+        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
+        self.send(':TRIGger:PATTern:FORMat ASCII')
+        self.send(':TRIGger:PATTern "1RXX"')                    # I2C Stop
+        self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
+        sleep(1)
+
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
+        sleep(1)
+
+        self.send(':RUN')
+
     def rise_time(self, save_to, file):
         self.prepare_unit_for_i2c()
 
         # set trigger
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE GLITch')
         self.send(':TRIGger:GLITch:SOURce CHANnel2')
         self.send(':TRIGger:GLITch:LEVel 1')
@@ -130,7 +208,7 @@ class I2C(Oscilloscope):
         self.prepare_unit_for_i2c()
 
         # set trigger
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE GLITch')
         self.send(':TRIGger:GLITch:SOURce CHANnel2')
         self.send(':TRIGger:GLITch:LEVel 1')
@@ -167,7 +245,7 @@ class I2C(Oscilloscope):
         self.prepare_unit_for_i2c()
 
         # set trigger
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE GLITch')
         self.send(':TRIGger:GLITch:SOURce CHANnel2')
         self.send(':TRIGger:GLITch:LEVel 1')
@@ -201,24 +279,39 @@ class I2C(Oscilloscope):
 
         self.send(':RUN')
 
-    def signal_levels(self, save_to, file):
+    def signal_levels(self, driver, save_to, file):
         self.prepare_unit_for_i2c()
 
-        # set trigger
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
-        self.send(':TRIGger:MODE GLITch')
-        self.send(':TRIGger:GLITch:SOURce CHANnel2')
-        self.send(':TRIGger:GLITch:LEVel 1')
-        self.send(':TRIGger:GLITch:POLarity POSitive')
-        self.send(':TRIGger:GLITch:LESSthan 1.1us')
+        # # set trigger
+        # # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        # self.send(':TRIGger:MODE GLITch')
+        # self.send(':TRIGger:GLITch:SOURce CHANnel2')
+        # self.send(':TRIGger:GLITch:LEVel 1')
+        # self.send(':TRIGger:GLITch:POLarity POSitive')
+        # self.send(':TRIGger:GLITch:LESSthan 1.1us')
 
-        self.send(':MEASure:CLEar')
-        # make sure lower, middle, upper measurement are 10%, 50%, 90%:
-        self.send(':MEASure:DEFine THResholds,STANdard')
-        self.send(':MEASure:VTOP CHANnel1')
-        self.send(':MEASure:VTOP CHANnel2')
-        self.send(':MEASure:VBASe CHANnel1')
-        self.send(':MEASure:VBASe CHANnel2')
+        self.trig_start_condition()
+
+        if driver == 'master':
+            self.send(':MEASure:CLEar')
+            # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+            self.send(':MEASure:DEFine THResholds,STANdard')
+            self.send(':MEASure:VTOP CHANnel1')
+            self.send(':MEASure:VTOP CHANnel2')
+            self.send(':MEASure:VBASe CHANnel1')
+            self.send(':MEASure:VBASe CHANnel2')
+        elif driver == 'slave':
+            # update X settings
+            self.send(':TIMebase:SCALe 0.000002')  # units/div [sec]; main window horizontal scale
+            self.send(':TIMebase:MODE WINDow')  # show zoom window
+            self.send(':TIMebase:WINDow:POSition 0.0000096')  # zoom at 9.6us from tigger pos
+            self.send(':TIMebase:WINDow:SCALe 0.0000001')  # 100ns/div zoom window scale
+            # setup measurement
+            self.send(':MEASure:CLEar')
+            # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+            self.send(':MEASure:DEFine THResholds,STANdard')
+            self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
+
         sleep(1)
 
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
@@ -236,111 +329,5 @@ class I2C(Oscilloscope):
         self.send(':STOP')
 
         self.get_screen(file, save_to)
-
-        self.send(':RUN')
-
-    def start_condition(self, save_to, file):
-        # set oscilloscope
-        # setup oscilloscope or this particular test
-        # setting oscilloscope channels common settings
-        # turn required channels ON, keep others OFF:
-        self.send(':CHANnel1:DISPlay ON')
-        self.send(':CHANnel2:DISPlay ON')
-        self.send(':CHANnel3:DISPlay OFF')
-        self.send(':CHANnel4:DISPlay OFF')
-        # set proper labels on the ON channels and display them:
-        self.send(':CHANnel1:LABel "SCK"')
-        self.send(':CHANnel2:LABel "SDA"')
-        self.send(':DISPlay:LABel ON')
-
-        # setting Y parameters
-        # channel 1 specific settings
-        self.send(':CHANnel1:SCALe 0.25')
-        self.send(':CHANnel1:OFFSet 1')
-
-        # channel 2 specific settings
-        self.send(':CHANnel2:SCALe 0.25')
-        self.send(':CHANnel2:OFFSet 1')
-
-        # setting X parameters
-        self.send(':TIMebase:MODE MAIN')                        # timebase mode: MAIN, WINDow, XY, ROLL
-        # set 1us/div for 1MHz bit time
-        self.send(':TIMebase:SCALe 0.000001')                  # units/div [sec]; main window horizontal scale
-        # set the time reference to one division from the left side of the screen:
-        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
-
-        # set trigger
-        # dummy set edge trigger to do magic settings...
-        self.send(':TRIGger:MODE EDGE')
-        self.send(':TRIGger:EDGE:SOURce CHANnel2')
-        self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
-        # set the correct pattern trigger settings:
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
-        self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
-        self.send(':TRIGger:PATTern:FORMat ASCII')
-        self.send(':TRIGger:PATTern "1FXX"')                    # I2C Start or Repeated Start condition
-        self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
-
-        # self.send(':MEASure:CLEar')
-        # self.send(':MEASure:VRMS CHANnel1')
-        # self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
-        sleep(1)
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
-
-        self.send(':RUN')
-
-    def stop_condition(self, save_to, file):
-        # set oscilloscope
-        # setup oscilloscope or this particular test
-        # setting oscilloscope channels common settings
-        # turn required channels ON, keep others OFF:
-        self.send(':CHANnel1:DISPlay ON')
-        self.send(':CHANnel2:DISPlay ON')
-        self.send(':CHANnel3:DISPlay OFF')
-        self.send(':CHANnel4:DISPlay OFF')
-        # set proper labels on the ON channels and display them:
-        self.send(':CHANnel1:LABel "SCK"')
-        self.send(':CHANnel2:LABel "SDA"')
-        self.send(':DISPlay:LABel ON')
-
-        # setting Y parameters
-        # channel 1 specific settings
-        self.send(':CHANnel1:SCALe 0.25')
-        self.send(':CHANnel1:OFFSet 1')
-
-        # channel 2 specific settings
-        self.send(':CHANnel2:SCALe 0.25')
-        self.send(':CHANnel2:OFFSet 1')
-
-        # setting X parameters
-        self.send(':TIMebase:MODE MAIN')                        # timebase mode: MAIN, WINDow, XY, ROLL
-        # set 1us/div for 1MHz bit time
-        self.send(':TIMebase:SCALe 0.000001')                  # units/div [sec]; main window horizontal scale
-        # set the time reference to one division from the left side of the screen:
-        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
-
-        # set trigger
-        # dummy set edge trigger to do magic settings...
-        self.send(':TRIGger:MODE EDGE')
-        self.send(':TRIGger:EDGE:SOURce CHANnel2')
-        self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
-        # set the correct pattern trigger settings:
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
-        self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
-        self.send(':TRIGger:PATTern:FORMat ASCII')
-        self.send(':TRIGger:PATTern "1RXX"')                    # I2C Stop
-        self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
-
-        # self.send(':MEASure:CLEar')
-        # self.send(':MEASure:VRMS CHANnel1')
-        # self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
-        sleep(1)
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
 
         self.send(':RUN')
