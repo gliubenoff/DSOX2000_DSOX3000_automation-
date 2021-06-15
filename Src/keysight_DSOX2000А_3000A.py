@@ -15,6 +15,7 @@ class Oscilloscope:
     def send(self, cmd_str):
         for retry in range(3):
             self.unit.write(cmd_str)
+            # time.sleep(0.25)
             if int(self.unit.query('*OPC?')) == 1:
                 print(f'CMD {cmd_str} sent at {retry} try.')
                 break
@@ -128,11 +129,11 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1FXX"')                    # I2C Start or Repeated Start condition
         self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
-        sleep(1)
+        # sleep(1)
 
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
+        # sleep(1)
 
     def set_trig_i2c_restart_sbus(self):
 
@@ -150,7 +151,7 @@ class I2C(Oscilloscope):
 
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
+        # sleep(1)
 
     def set_trig_i2c_restart(self):
 
@@ -168,13 +169,9 @@ class I2C(Oscilloscope):
 
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
+        # sleep(1)
 
     def set_trig_i2c_stop(self):
-        self.set_unit_for_i2c()
-        # but update timebase reference:
-        self.send(':TIMebase:REFerence CENTer')                   # options: LEFT | CENTer | RIGHt
-
         # set trigger
         # dummy set edge trigger to do magic settings...
         self.send(':TRIGger:MODE EDGE')
@@ -185,11 +182,10 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1RXX"')                    # I2C Stop
         self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
-        sleep(1)
 
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
+        # sleep(1)
 
     def set_trig_i2c_sda_bit(self):
         # set trigger
@@ -201,7 +197,7 @@ class I2C(Oscilloscope):
 
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
         unit_triggered = int(self.query(':TER?'))   # read trigger event register to clear it
-        sleep(1)
+        # sleep(1)
 
     def set_meas_rise_times(self):
         self.send(':MEASure:CLEar')
