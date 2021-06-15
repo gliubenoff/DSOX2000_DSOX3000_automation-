@@ -35,15 +35,15 @@ measure_i2c = keysight_DSOX2000А_3000A.I2C(address)
 ## ****************************************************************
 
 i2c_timings_img = 'I2C_Timing.png'     # if oscilloscope set to save another image format then modify the extension
-measure_i2c.meas_rise_fall_time(results_path, i2c_timings_img)
+measure_i2c.set_meas_rise_fall_times(results_path, i2c_timings_img)
 while True:
     i = input("reset setup")
     if i == 'y':
         break
 
-# measure VTOP and VBASE for SCK and SDA signals:
+# measure VTOP and VBASE for SCL and SDA signals:
 i2c_levels_master = 'I2C_DC_Levels_master.png'
-measure_i2c.meas_signal_levels('master', results_path, i2c_levels_master)
+measure_i2c.set_meas_signal_levels('master', results_path, i2c_levels_master)
 while True:
     i = input("reset setup")
     if i == 'y':
@@ -51,7 +51,7 @@ while True:
 
 # measure the SDA LOW voltage level (at Slave ACK):
 i2c_levels_slave = 'I2C_DC_Levels_slave.png'
-measure_i2c.meas_signal_levels('slave', results_path, i2c_levels_slave)
+measure_i2c.set_meas_signal_levels('slave', results_path, i2c_levels_slave)
 while True:
     i = input("reset setup")
     if i == 'y':

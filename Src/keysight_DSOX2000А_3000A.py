@@ -40,7 +40,18 @@ class Oscilloscope:
         # query the unit's video buffer, transfer it as binary stream in bytes and record it into the opened file:
         screenshot.write(self.unit.query_binary_values(':DISPlay:DATA? PNG,COLor', datatype='s', container=bytes))
         screenshot.close()
-    
+
+    def get_trigger(self):
+        while True:
+            unit_triggered = int(self.query(':TER?'))
+            if unit_triggered == 1:
+                print("scope triggered!!")
+                break
+            sleep(1)
+
+        print(unit_triggered)
+        self.send(':STOP')
+
     def __init__(self, address):
         # address can be obtained from the device itself pressing Utility -> IO. VISA address will be displayed in
         # a new window. Pass it as string when creating the object or create variable. Address variable example:
@@ -71,7 +82,7 @@ class I2C(Oscilloscope):
         self.send(':CHANnel3:DISPlay OFF')
         self.send(':CHANnel4:DISPlay OFF')
         # set proper labels on the ON channels and display them:
-        self.send(':CHANnel1:LABel "SCK"')
+        self.send(':CHANnel1:LABel "SCL"')
         self.send(':CHANnel2:LABel "SDA"')
         self.send(':DISPlay:LABel ON')
 
@@ -147,7 +158,7 @@ class I2C(Oscilloscope):
     def set_trig_i2c_stop(self):
         self.set_unit_for_i2c()
         # but update timebase reference:
-        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
+        self.send(':TIMebase:REFerence CENTer')                   # options: LEFT | CENTer | RIGHt
 
         # set trigger
         # dummy set edge trigger to do magic settings...
@@ -182,6 +193,9 @@ class I2C(Oscilloscope):
     def set_meas_rise_times(self, save_to, file):
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,STANdard')
+        self.send(':MEASure:SOURce CHANnel2')
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:RISetime CHANnel1')
         self.send(':MEASure:RISetime CHANnel2')
@@ -205,6 +219,9 @@ class I2C(Oscilloscope):
         # set the measurements
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,STANdard')
+        self.send(':MEASure:SOURce CHANnel2')
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:FALLtime CHANnel1')
         self.send(':MEASure:FALLtime CHANnel2')
@@ -214,15 +231,7 @@ class I2C(Oscilloscope):
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
         sleep(1)
 
-        while True:
-            unit_triggered = int(self.query(':TER?'))
-            if unit_triggered == 1:
-                print("scope triggered!!")
-                break
-            sleep(1)
-
-        print(unit_triggered)
-        self.send(':STOP')
+        self.get_trigger()
 
         self.get_screen(file, save_to)
 
@@ -232,15 +241,13 @@ class I2C(Oscilloscope):
         self.set_unit_for_i2c()
 
         # set trigger
-        # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
-        self.send(':TRIGger:MODE GLITch')
-        self.send(':TRIGger:GLITch:SOURce CHANnel2')
-        self.send(':TRIGger:GLITch:LEVel 1')
-        self.send(':TRIGger:GLITch:POLarity POSitive')
-        self.send(':TRIGger:GLITch:LESSthan 1.1us')
+        self.set_trig_i2c_sda_bit()
 
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,STANdard')
+        self.send(':MEASure:SOURce CHANnel2')
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:RISetime CHANnel1')
         self.send(':MEASure:RISetime CHANnel2')
@@ -252,21 +259,13 @@ class I2C(Oscilloscope):
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
         sleep(1)
 
-        while True:
-            unit_triggered = int(self.query(':TER?'))
-            if unit_triggered == 1:
-                print("scope triggered!!")
-                break
-            sleep(1)
-
-        print(unit_triggered)
-        self.send(':STOP')
+        self.get_trigger()
 
         self.get_screen(file, save_to)
 
         self.send(':RUN')
 
-    def meas_signal_levels(self, driver, save_to, file):
+    def set_meas_signal_levels(self, driver, save_to, file):
         self.set_unit_for_i2c()
 
         self.set_trig_i2c_start()
@@ -274,6 +273,9 @@ class I2C(Oscilloscope):
         if driver == 'master':
             self.send(':MEASure:CLEar')
             # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+            self.send(':MEASure:SOURce CHANnel1')
+            self.send(':MEASure:DEFine THResholds,STANdard')
+            self.send(':MEASure:SOURce CHANnel2')
             self.send(':MEASure:DEFine THResholds,STANdard')
             self.send(':MEASure:VTOP CHANnel1')
             self.send(':MEASure:VTOP CHANnel2')
@@ -288,6 +290,7 @@ class I2C(Oscilloscope):
             # setup measurement
             self.send(':MEASure:CLEar')
             # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+            self.send(':MEASure:SOURce CHANnel2')
             self.send(':MEASure:DEFine THResholds,STANdard')
             self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
 
@@ -297,22 +300,97 @@ class I2C(Oscilloscope):
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
         sleep(1)
 
-        while True:
-            unit_triggered = int(self.query(':TER?'))
-            if unit_triggered == 1:
-                print("scope triggered!!")
-                break
-            sleep(1)
-
-        print(unit_triggered)
-        self.send(':STOP')
+        self.get_trigger()
 
         self.get_screen(file, save_to)
 
         self.send(':RUN')
 
-    def meas_sck_freq_duty(self, save_to, file):
-        self.set_unit_for_i2c()
-        # update
+    def set_meas_scl_freq_duty(self, save_to, file):
+        # self.set_unit_for_i2c()
+        #
+        # self.set_trig_i2c_sda_bit()
 
-        self.set_trig_i2c_start()
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 10%, 50%, 90%:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,STANdard')
+        self.send(':MEASure:FREQuency CHANnel1')
+        self.send(':MEASure:PWIDth CHANnel1')
+        self.send(':MEASure:NWIDth CHANnel1')
+
+    def set_meas_sda_setup_hold(self):
+        # to be used with set_trig_i2c_sda_bit()
+        # good generic tutorial:
+        # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        self.send(':MEASure:SOURce CHANnel2')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        # ToDo: to guarantee precise measurement implement cursor measurement instead
+        # set measure tSU;DAT (SDA setup time)
+        # defined as the time between 70% SDA Rise time -> 30% SCL Rise time
+        self.send(':MEASure:DEFine DELay,+1,+1')
+        self.send(':MEASure:DELay CHANnel2,CHANnel1')
+        # set measure tHD;DAT (SDA hold time)
+        # defined as the time between 30% SCL Fall time -> 70% SDA Fall time (or 30% SDA Rise time but N/A here)
+        self.send(':MEASure:DEFine DELay,-1,-1')
+        self.send(':MEASure:DELay CHANnel1,CHANnel2')
+
+    def set_meas_restart_setup_hold(self):
+        # to be used with set_trig_i2c_restart()
+        # good generic tutorial:
+        # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        self.send(':MEASure:SOURce CHANnel2')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        # ToDo: to guarantee precise measurement implement cursor measurement instead
+        # set measure tSU;STA (re/start setup time)
+        # defined as time between 70% SCL Rise edge -> 70% SDA Fall edge
+        self.send(':MEASure:DEFine DELay,+1,-1')
+        self.send(':MEASure:DELay CHANnel1,CHANnel2')
+        # set measure tHD;STA (re/start hold time)
+        # defined as time between 30% SDA Fall edge -> 70% SCL Fall edge
+        self.send(':MEASure:DEFine DELay,-1,-1')
+        self.send(':MEASure:DELay CHANnel2,CHANnel1')
+
+    def set_meas_stop_setup(self):
+        # to be used with set_trig_i2c_stop()
+        # good generic tutorial:
+        # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        self.send(':MEASure:SOURce CHANnel2')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        # ToDo: to guarantee precise measurement implement cursor measurement instead
+        # set measure tSU:STO (SDA setup time at Stop)
+        # defined as time between 70% SCL Rise edge -> 30% SDA Rise edge
+        self.send(':MEASure:DEFine DELay,+1,+1')
+        self.send(':MEASure:DELay CHANnel1,CHANnel2')
+
+    def set_meas_i2c_bus_free_time(self):
+        # to be used with set_trig_i2c_stop()
+        # update X settings
+        self.send(':TIMebase:SCALe 0.0000005')  # units/div [sec]; main window horizontal scale
+        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
+        self.send(':TIMebase:POSition -0.0000005')   # time interval between the trigger event and the display point
+
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        self.send(':MEASure:SOURce CHANnel2')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        # ToDo: to guarantee precise measurement implement cursor measurement instead
+        # set measure tBUF (Bus free time)
+        # defined as time between 70% SDA Rise edge (@Stop) -> 70% SDA Fall edge (@Start)
+        self.send(':MEASure:DEFine DELay,+1,-1')
+        self.send(':MEASure:DELay CHANnel2,CHANnel2')
+
