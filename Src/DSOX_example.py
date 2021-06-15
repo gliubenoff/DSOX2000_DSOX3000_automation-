@@ -1,6 +1,33 @@
-import keysight_DSOX2000А_3000A
+import Src.keysight_DSOX2000А_3000A as keysight_DSOX2000А_3000A
 import sys
 import os
+import time
+
+rc_psu_available = True     # if EA-PS 2042-10 B remote controlled PSU is available
+
+if rc_psu_available:
+    import ea_psu_controller
+    # more information on https://pypi.org/project/ea-psu-controller/
+
+    ps_com_port = 'COM4'
+    out_voltage = 0
+    ps_name = ea_psu_controller.PsuEA.PSU_DEVICE_LIST_WIN
+    print(f'Power Supply name: {ps_name}')
+    print(f'Connecting to  {ps_com_port}')
+    psu = ea_psu_controller.PsuEA(comport=ps_com_port)
+    txt = psu.get_device_description()
+    print(f'Connected to  {txt}')
+    psu.remote_on()
+    time.sleep(0.5)
+    psu.output_off()
+    time.sleep(1)
+
+    psu.set_voltage(28)
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
 
 # address can be obtained from the device itself pressing Utility -> IO. VISA address will be displayed in
 # a new window. Pass it as string when creating the object or create variable like:
@@ -16,46 +43,272 @@ else:
 
 measure_i2c = keysight_DSOX2000А_3000A.I2C(address)
 
-# Uncomment below if you want single rise/fall time measurement
-## ****************************************************************
-# i2c_rise_time_img = 'I2C_Rise_Time.png'     # if oscilloscope set to save another image format then modify the extension
-# oscilloscope will do the measurements but be so kind to let it know where to store the result:
-# measure_i2c.rise_time(results_path, i2c_rise_time_img)
-# while True:
-#     i = input("reset setup")
-#     if i == 'y':
-#         break
-#
-# i2c_fall_time_img = 'I2C_Fall_Time.png'     # if oscilloscope set to save another image format then modify the extension
-# measure_i2c.fall_time(results_path, i2c_fall_time_img)
-# while True:
-#     i = input("reset setup")
-#     if i == 'y':
-#         break
-## ****************************************************************
-
-i2c_timings_img = 'I2C_Timing.png'     # if oscilloscope set to save another image format then modify the extension
-measure_i2c.set_meas_rise_fall_times(results_path, i2c_timings_img)
-while True:
-    i = input("reset setup")
-    if i == 'y':
-        break
-
-# measure VTOP and VBASE for SCL and SDA signals:
+# **************************************************************************
+# measure DC levels for Master (SCL, SDA) and Slave (SDA at ACK)
+# DC levels for Master (SCL, SDA):
 i2c_levels_master = 'I2C_DC_Levels_master.png'
-measure_i2c.set_meas_signal_levels('master', results_path, i2c_levels_master)
-while True:
-    i = input("reset setup")
-    if i == 'y':
-        break
+# prepare oscilloscope to fetch correct image
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_signal_levels("master")
+measure_i2c.set_trig_i2c_start()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_levels_master, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
 
-# measure the SDA LOW voltage level (at Slave ACK):
+time.sleep(3)
+
+# DC levels for Slave (SDA Low at ACK):
 i2c_levels_slave = 'I2C_DC_Levels_slave.png'
-measure_i2c.set_meas_signal_levels('slave', results_path, i2c_levels_slave)
-while True:
-    i = input("reset setup")
-    if i == 'y':
-        break
+# prepare oscilloscope to fetch correct image
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_signal_levels("slave")     # important to mention the slave measurement
+measure_i2c.set_trig_i2c_start()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_levels_slave, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
 
+time.sleep(3)
+# **************************************************************************
+
+# **************************************************************************
+# Measure I2C signal rise/fall times:
+i2c_slew_rate_img = 'I2C_Slew_Rate.png'
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_rise_fall_times()
+measure_i2c.set_trig_i2c_sda_bit()
+
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_slew_rate_img, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+
+time.sleep(3)
+# **************************************************************************
+
+# **************************************************************************
+# Measure I2C SCL frequency and High/Low times:
+i2c_scl_freq_img = 'I2C_SCL_Frequency.png'
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_scl_freq_duty()
+measure_i2c.set_trig_i2c_sda_bit()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_scl_freq_img, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+
+time.sleep(3)
+# **************************************************************************
+
+# **************************************************************************
+# Measure I2C SDA setup/hold times:
+i2c_sda_set_hold_img = 'I2C_SDA_Setup_Hold.png'
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_sda_setup_hold()
+measure_i2c.set_trig_i2c_sda_bit()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_sda_set_hold_img, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+
+time.sleep(3)
+# **************************************************************************
+
+# **************************************************************************
+# Measure I2C repeated start setup/hold times:
+i2c_restart_set_hold_img = 'I2C_ReStart_Setup_Hold.png'
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_restart_setup_hold()
+measure_i2c.set_trig_i2c_restart()
+# NOTE: if oscilloscope has Serial BUS trigger package the following can also be used:
+# measure_i2c.set_trig_i2c_restart_sbus()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_restart_set_hold_img, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+
+time.sleep(3)
+# **************************************************************************
+
+# **************************************************************************
+# Measure I2C stop setup times:
+i2c_stop_setup_img = 'I2C_Stop_Setup.png'
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_stop_setup()
+measure_i2c.set_trig_i2c_stop()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_stop_setup_img, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+
+time.sleep(3)
+# **************************************************************************
+
+# **************************************************************************
+# Measure I2C bus free time:
+i2c_bus_free_img = 'I2C_Bus_Free.png'
+measure_i2c.set_unit_for_i2c()
+measure_i2c.set_meas_i2c_bus_free_time()
+measure_i2c.set_trig_i2c_stop()
+# time.sleep(1)
+# turn on the DUT as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_on()
+else:
+    while True:
+        i = input("Turn ON PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+# time.sleep(1)
+measure_i2c.get_trigger()   # poll the oscilloscope until trigger is found
+measure_i2c.get_screen(i2c_bus_free_img, results_path)     # save oscilloscope screen to image file
+# time.sleep(1)
+# turn off the DUT to prepare it for next test as the communication exists only on boot.
+# If bus is always busy comment the if statement
+if rc_psu_available:
+    psu.output_off()
+else:
+    while True:
+        i = input("Turn OFF PSU. Press 'y' (then hit Enter) when ready.")
+        if i == 'y':
+            break
+
+time.sleep(3)
+# **************************************************************************
 
 sys.exit("Normal termination.")

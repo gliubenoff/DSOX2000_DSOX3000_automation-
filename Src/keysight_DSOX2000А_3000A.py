@@ -1,5 +1,7 @@
 # This is library with control functions for oscilloscope Keysight DSOX2000A series
 # based on article https://oshgarage.com/keysight-automation-with-python/
+import time
+
 import pyvisa as visa
 from time import sleep
 import sys
@@ -11,7 +13,13 @@ class Oscilloscope:
         pass
 
     def send(self, cmd_str):
-        self.unit.write(cmd_str)
+        for retry in range(3):
+            self.unit.write(cmd_str)
+            if int(self.unit.query('*OPC?')) == 1:
+                print(f'CMD {cmd_str} sent at {retry} try.')
+                break
+            elif retry == 2:
+                print(f'CMD {cmd_str} failed {retry} times!')
 
     def query(self, cmd_str):
         report = self.unit.query(cmd_str)
@@ -102,6 +110,7 @@ class I2C(Oscilloscope):
         self.send(':TIMebase:SCALe 0.00000025')                 # units/div [sec]; main window horizontal scale
         # set the time reference to one division from the left side of the screen:
         self.send(':TIMebase:REFerence RIGHt')                   # options: LEFT | CENTer | RIGHt
+        self.send(':RUN')
 
     def set_trig_i2c_start(self):
         # self.set_unit_for_i2c()
@@ -125,8 +134,6 @@ class I2C(Oscilloscope):
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
         sleep(1)
 
-        self.send(':RUN')
-
     def set_trig_i2c_restart_sbus(self):
 
         self.set_unit_for_i2c()
@@ -141,6 +148,10 @@ class I2C(Oscilloscope):
         self.send(':SBUS1:IIC:TRIGger:TYPE RESTart')
         # RESTart — Another start condition occurs before a stop condition.
 
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
+        sleep(1)
+
     def set_trig_i2c_restart(self):
 
         self.set_unit_for_i2c()
@@ -154,6 +165,10 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:GLITch:POLarity POSitive')
         self.send(':TRIGger:GLITch:QUALifier RANGe')
         self.send(':TRIGger:GLITch:RANGe 1.1us,520ns')
+
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
+        sleep(1)
 
     def set_trig_i2c_stop(self):
         self.set_unit_for_i2c()
@@ -176,8 +191,6 @@ class I2C(Oscilloscope):
         unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
         sleep(1)
 
-        self.send(':RUN')
-
     def set_trig_i2c_sda_bit(self):
         # set trigger
         self.send(':TRIGger:MODE GLITch')
@@ -190,7 +203,7 @@ class I2C(Oscilloscope):
         unit_triggered = int(self.query(':TER?'))   # read trigger event register to clear it
         sleep(1)
 
-    def set_meas_rise_times(self, save_to, file):
+    def set_meas_rise_times(self):
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
         self.send(':MEASure:SOURce CHANnel1')
@@ -199,23 +212,8 @@ class I2C(Oscilloscope):
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:RISetime CHANnel1')
         self.send(':MEASure:RISetime CHANnel2')
-        sleep(1)
 
-        while True:
-            unit_triggered = int(self.query(':TER?'))
-            if unit_triggered == 1:
-                print("scope triggered!!")
-                break
-            sleep(1)
-
-        print(unit_triggered)
-        self.send(':STOP')
-
-        self.get_screen(file, save_to)
-
-        self.send(':RUN')
-
-    def set_meas_fall_times(self, save_to, file):
+    def set_meas_fall_times(self):
         # set the measurements
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
@@ -225,24 +223,8 @@ class I2C(Oscilloscope):
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:FALLtime CHANnel1')
         self.send(':MEASure:FALLtime CHANnel2')
-        sleep(1)
 
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
-
-        self.get_trigger()
-
-        self.get_screen(file, save_to)
-
-        self.send(':RUN')
-
-    def set_meas_rise_fall_times(self, save_to, file):
-        self.set_unit_for_i2c()
-
-        # set trigger
-        self.set_trig_i2c_sda_bit()
-
+    def set_meas_rise_fall_times(self):
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
         self.send(':MEASure:SOURce CHANnel1')
@@ -253,23 +235,8 @@ class I2C(Oscilloscope):
         self.send(':MEASure:RISetime CHANnel2')
         self.send(':MEASure:FALLtime CHANnel1')
         self.send(':MEASure:FALLtime CHANnel2')
-        sleep(1)
 
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
-
-        self.get_trigger()
-
-        self.get_screen(file, save_to)
-
-        self.send(':RUN')
-
-    def set_meas_signal_levels(self, driver, save_to, file):
-        self.set_unit_for_i2c()
-
-        self.set_trig_i2c_start()
-
+    def set_meas_signal_levels(self, driver):
         if driver == 'master':
             self.send(':MEASure:CLEar')
             # make sure lower, middle, upper measurement are 10%, 50%, 90%:
@@ -294,23 +261,8 @@ class I2C(Oscilloscope):
             self.send(':MEASure:DEFine THResholds,STANdard')
             self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
 
-        sleep(1)
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        sleep(1)
-
-        self.get_trigger()
-
-        self.get_screen(file, save_to)
-
-        self.send(':RUN')
-
-    def set_meas_scl_freq_duty(self, save_to, file):
-        # self.set_unit_for_i2c()
-        #
-        # self.set_trig_i2c_sda_bit()
-
+    def set_meas_scl_freq_duty(self):
+        # to be used with set_trig_i2c_sda_bit()
         self.send(':MEASure:CLEar')
         # make sure lower, middle, upper measurement are 10%, 50%, 90%:
         self.send(':MEASure:SOURce CHANnel1')
