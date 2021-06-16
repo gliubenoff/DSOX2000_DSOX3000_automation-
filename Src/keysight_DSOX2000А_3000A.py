@@ -39,7 +39,9 @@ class Oscilloscope:
 
         # basic settings:
         self.send(':SAVE:IMAGe:FORMat PNG')
-        self.send(':SAVE:IMAGe:FACTors 0')
+        self.send(':SAVE:IMAGe:FACTors OFF')
+        self.send(':SAVE:IMAGe:INKSaver OFF')
+        self.send(':SAVE:IMAGe:PALette COLor')
         self.send(':RUN')
 
     def get_screen(self, filename, path):
@@ -119,6 +121,8 @@ class I2C(Oscilloscope):
         self.send(':TIMebase:SCALe 0.00000025')                 # units/div [sec]; main window horizontal scale
         # set the time reference to one division from the left side of the screen:
         self.send(':TIMebase:REFerence RIGHt')                   # options: LEFT | CENTer | RIGHt
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        int(self.query(':TER?'))  # read trigger event register to clear it
         self.send(':RUN')
 
     def set_trig_i2c_start(self):
@@ -129,23 +133,17 @@ class I2C(Oscilloscope):
         # set trigger
         # dummy set edge trigger to do magic settings...
         self.send(':TRIGger:MODE EDGE')
-        self.send(':TRIGger:EDGE:SOURce CHANnel2')
-        self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
+        self.send(':TRIGger:EDGE:SOURce CHANnel1')
+        self.send(':TRIGger:EDGE:LEVel 1.5,CHANnel1')
         # set the correct pattern trigger settings:
         # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1FXX"')                    # I2C Start or Repeated Start condition
-        self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
-        # sleep(1)
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        # sleep(1)
+        self.send(':TRIGger:LEVel 1.5,CHANnel2')                  # set trigger level to 1V for CH1
+        # self.send(':SINGle')
 
     def set_trig_i2c_restart_sbus(self):
-
-        self.set_unit_for_i2c()
         # but update the timebase reference:
         self.send(':TIMebase:REFerence LEFT')   # options: LEFT | CENTer | RIGHt
 
@@ -156,14 +154,9 @@ class I2C(Oscilloscope):
         self.send(':SBUS1:IIC:SOURce:DATA  CHANNel2')
         self.send(':SBUS1:IIC:TRIGger:TYPE RESTart')
         # RESTart — Another start condition occurs before a stop condition.
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        # sleep(1)
+        # self.send(':SINGle')
 
     def set_trig_i2c_restart(self):
-
-        self.set_unit_for_i2c()
         # but update the timebase reference:
         self.send(':TIMebase:REFerence RIGHt')   # options: LEFT | CENTer | RIGHt
 
@@ -174,26 +167,20 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:GLITch:POLarity POSitive')
         self.send(':TRIGger:GLITch:QUALifier RANGe')
         self.send(':TRIGger:GLITch:RANGe 1.1us,520ns')
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        # sleep(1)
+        # self.send(':SINGle')
 
     def set_trig_i2c_stop(self):
         # set trigger
         # dummy set edge trigger to do magic settings...
         self.send(':TRIGger:MODE EDGE')
-        self.send(':TRIGger:EDGE:SOURce CHANnel2')
-        self.send(':TRIGger:EDGE:LEVel 1,CHANnel2')
+        self.send(':TRIGger:EDGE:SOURce CHANnel1')
+        self.send(':TRIGger:EDGE:LEVel 1.5,CHANnel1')
         # set the correct pattern trigger settings:
         self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1RXX"')                    # I2C Stop
-        self.send(':TRIGger:LEVel 1,CHANnel1')                  # set trigger level to 1V for CH1
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))  # read trigger event register to clear it
-        # sleep(1)
+        self.send(':TRIGger:LEVel 1.5,CHANnel2')                # set trigger level to 1.5V for CH2
+        # self.send(':SINGle')
 
     def set_trig_i2c_sda_bit(self):
         # set trigger
@@ -202,10 +189,7 @@ class I2C(Oscilloscope):
         self.send(':TRIGger:GLITch:LEVel 1')
         self.send(':TRIGger:GLITch:POLarity POSitive')
         self.send(':TRIGger:GLITch:LESSthan 1.1us')
-
-        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        unit_triggered = int(self.query(':TER?'))   # read trigger event register to clear it
-        # sleep(1)
+        # self.send(':SINGle')
 
     def set_meas_rise_times(self):
         self.send(':MEASure:CLEar')
