@@ -17,7 +17,7 @@ class Oscilloscope:
             self.unit.write(cmd_str)
             # time.sleep(0.25)
             if int(self.unit.query('*OPC?')) == 1:
-                print(f'CMD {cmd_str} sent at {retry} try.')
+                # print(f'CMD {cmd_str} sent at {retry} try.')
                 break
             elif retry == 2:
                 print(f'CMD {cmd_str} failed {retry} times!')
@@ -48,6 +48,7 @@ class Oscilloscope:
 
         # query the unit's video buffer, transfer it as binary stream in bytes and record it into the opened file:
         screenshot.write(self.unit.query_binary_values(':DISPlay:DATA? PNG,COLor', datatype='s', container=bytes))
+        self.unit.query('*OPC?')
         screenshot.close()
 
     def get_trigger(self):
@@ -80,6 +81,13 @@ class Oscilloscope:
 
 
 class I2C(Oscilloscope):
+
+    def __init__(self, address):
+        super().__init__(address)
+
+        # prepare oscilloscope queries to get the results in a text log file
+        # use dictionary in order to allow labels for the log file readability
+        self.results = {}   # Note: dictionary type does not allow duplicate entries.
 
     def set_unit_for_i2c(self):
         # set oscilloscope
@@ -157,7 +165,7 @@ class I2C(Oscilloscope):
 
         self.set_unit_for_i2c()
         # but update the timebase reference:
-        self.send(':TIMebase:REFerence CENTer')   # options: LEFT | CENTer | RIGHt
+        self.send(':TIMebase:REFerence RIGHt')   # options: LEFT | CENTer | RIGHt
 
         # set trigger
         self.send(':TRIGger:MODE GLITch')
@@ -209,6 +217,11 @@ class I2C(Oscilloscope):
         self.send(':MEASure:RISetime CHANnel1')
         self.send(':MEASure:RISetime CHANnel2')
 
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Rise Times'  # provide test name to ease log readability
+        self.results['I2C SCL t(r)'] = ':MEASure:RISetime? CHANnel1'
+        self.results['I2C SDA t(r)'] = ':MEASure:RISetime? CHANnel2'
+
     def set_meas_fall_times(self):
         # set the measurements
         self.send(':MEASure:CLEar')
@@ -219,6 +232,11 @@ class I2C(Oscilloscope):
         self.send(':MEASure:DEFine THResholds,STANdard')
         self.send(':MEASure:FALLtime CHANnel1')
         self.send(':MEASure:FALLtime CHANnel2')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Fall Times'  # provide test name to ease log readability
+        self.results['I2C SCL t(f)'] = ':MEASure:FALLtime? CHANnel1'
+        self.results['I2C SDA t(f)'] = ':MEASure:FALLtime? CHANnel2'
 
     def set_meas_rise_fall_times(self):
         self.send(':MEASure:CLEar')
@@ -232,6 +250,13 @@ class I2C(Oscilloscope):
         self.send(':MEASure:FALLtime CHANnel1')
         self.send(':MEASure:FALLtime CHANnel2')
 
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Rise/Fall Times'  # provide test name to ease log readability
+        self.results['I2C SCL t(r)'] = ':MEASure:RISetime? CHANnel1'
+        self.results['I2C SDA t(r)'] = ':MEASure:RISetime? CHANnel2'
+        self.results['I2C SCL t(f)'] = ':MEASure:FALLtime? CHANnel1'
+        self.results['I2C SDA t(f)'] = ':MEASure:FALLtime? CHANnel2'
+
     def set_meas_signal_levels(self, driver):
         if driver == 'master':
             self.send(':MEASure:CLEar')
@@ -244,6 +269,14 @@ class I2C(Oscilloscope):
             self.send(':MEASure:VTOP CHANnel2')
             self.send(':MEASure:VBASe CHANnel1')
             self.send(':MEASure:VBASe CHANnel2')
+
+            # fill the queries from this measure to ask for results after trigger:
+            self.results['Test title'] = 'I2C DC Signal Levels Master'    # provide test name to ease log readability
+            self.results['I2C SCL V(H)'] = ':MEASure:VTOP? CHANnel1'
+            self.results['I2C SDA V(H)'] = ':MEASure:VTOP? CHANnel2'
+            self.results['I2C SCL V(L)'] = ':MEASure:VBASe? CHANnel2'
+            self.results['I2C SDA V(L)'] = ':MEASure:VBASe? CHANnel2'
+
         elif driver == 'slave':
             # update X settings
             self.send(':TIMebase:SCALe 0.000002')  # units/div [sec]; main window horizontal scale
@@ -257,6 +290,10 @@ class I2C(Oscilloscope):
             self.send(':MEASure:DEFine THResholds,STANdard')
             self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
 
+            # fill the queries from this measure to ask for results after trigger:
+            self.results['Test title'] = 'I2C Slave Active Level'    # provide test name to ease log readability
+            self.results['I2C Slave SDA V(L)'] = ':MEASure:VRMS? DISPlay,DC,CHANnel2'
+
     def set_meas_scl_freq_duty(self):
         # to be used with set_trig_i2c_sda_bit()
         self.send(':MEASure:CLEar')
@@ -267,7 +304,13 @@ class I2C(Oscilloscope):
         self.send(':MEASure:PWIDth CHANnel1')
         self.send(':MEASure:NWIDth CHANnel1')
 
-    def set_meas_sda_setup_hold(self):
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C SCL Frequency and High/Low times'  # provide test name to ease log readability
+        self.results['I2C SCL Frequency'] = ':MEASure:FREQuency? CHANnel1'
+        self.results['I2C SCL High Time tHIGH'] = ':MEASure:PWIDth? CHANnel1'
+        self.results['I2C SCL Low Time tLOW'] = ':MEASure:NWIDth? CHANnel1'
+
+    def set_meas_sda_setup(self):
         # to be used with set_trig_i2c_sda_bit()
         # good generic tutorial:
         # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
@@ -282,12 +325,32 @@ class I2C(Oscilloscope):
         # defined as the time between 70% SDA Rise time -> 30% SCL Rise time
         self.send(':MEASure:DEFine DELay,+1,+1')
         self.send(':MEASure:DELay CHANnel2,CHANnel1')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Setup Time'  # provide test name to ease log readability
+        self.results['I2C SDA Setup Time tSU;DAT'] = ':MEASure:DELay?'
+
+    def set_meas_sda_hold(self):
+        # to be used with set_trig_i2c_sda_bit()
+        # good generic tutorial:
+        # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        self.send(':MEASure:SOURce CHANnel2')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        # ToDo: to guarantee precise measurement implement cursor measurement instead
         # set measure tHD;DAT (SDA hold time)
         # defined as the time between 30% SCL Fall time -> 70% SDA Fall time (or 30% SDA Rise time but N/A here)
         self.send(':MEASure:DEFine DELay,-1,-1')
         self.send(':MEASure:DELay CHANnel1,CHANnel2')
 
-    def set_meas_restart_setup_hold(self):
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Hold time'  # provide test name to ease log readability
+        self.results['I2C SDA Hold Time tHD;DAT'] = ':MEASure:DELay?'
+
+    def set_meas_restart_setup(self):
         # to be used with set_trig_i2c_restart()
         # good generic tutorial:
         # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
@@ -302,10 +365,30 @@ class I2C(Oscilloscope):
         # defined as time between 70% SCL Rise edge -> 70% SDA Fall edge
         self.send(':MEASure:DEFine DELay,+1,-1')
         self.send(':MEASure:DELay CHANnel1,CHANnel2')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Repetitive Start Setup Time' # provide test name to ease log readability
+        self.results['I2C ReStart Setup Time tSU;STA'] = ':MEASure:DELay?'
+
+    def set_meas_restart_hold(self):
+        # to be used with set_trig_i2c_restart()
+        # good generic tutorial:
+        # https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
+        self.send(':MEASure:CLEar')
+        # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
+        self.send(':MEASure:SOURce CHANnel1')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        self.send(':MEASure:SOURce CHANnel2')
+        self.send(':MEASure:DEFine THResholds,PERCent,70,50,30')
+        # ToDo: to guarantee precise measurement implement cursor measurement instead
         # set measure tHD;STA (re/start hold time)
         # defined as time between 30% SDA Fall edge -> 70% SCL Fall edge
         self.send(':MEASure:DEFine DELay,-1,-1')
         self.send(':MEASure:DELay CHANnel2,CHANnel1')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Repetitive Start Setup/Hold times' # provide test name to ease log readability
+        self.results['I2C (Re)Start Hold Time tHD;STA'] = ':MEASure:DELay?'
 
     def set_meas_stop_setup(self):
         # to be used with set_trig_i2c_stop()
@@ -322,6 +405,10 @@ class I2C(Oscilloscope):
         # defined as time between 70% SCL Rise edge -> 30% SDA Rise edge
         self.send(':MEASure:DEFine DELay,+1,+1')
         self.send(':MEASure:DELay CHANnel1,CHANnel2')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Stop Setup time'  # provide test name to ease log readability
+        self.results['I2C Stop Setup Time tSU;STO'] = ':MEASure:DELay? CHANnel1,CHANnel2'
 
     def set_meas_i2c_bus_free_time(self):
         # to be used with set_trig_i2c_stop()
@@ -342,3 +429,27 @@ class I2C(Oscilloscope):
         self.send(':MEASure:DEFine DELay,+1,-1')
         self.send(':MEASure:DELay CHANnel2,CHANnel2')
 
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'I2C Bus Free Time'  # provide test name to ease log readability
+        self.results['I2C Bus Free Time tBUF'] = ':MEASure:DELay?'
+
+    def get_measured_values(self, filename, path):
+        filepath = path + filename
+        log = open(filepath, 'a')
+
+        # write test title in the log file and then remove it not to be send to oscilloscope:
+        test_title = self.results['Test title']
+        log.write(f'{test_title}\n\n')
+        print(f'{test_title}\n')   # show test title in console. Remove if not necessary
+        self.results.pop('Test title')
+
+        # poll the oscilloscope results with the rest queries:
+        for i in self.results.keys():
+            # query the unit's video buffer, transfer it as binary stream in bytes and record it into the opened file:
+            value = self.query(f'{self.results[i]}')
+            log.write(f'{i}: {value}')
+            print(f'{i}: {value}')    # show results in console. Remove if not necessary
+
+        log.write('\n\n')   # add two empty lines to separate next test results
+        log.close()
+        self.results.clear()    # flush the query buffer
