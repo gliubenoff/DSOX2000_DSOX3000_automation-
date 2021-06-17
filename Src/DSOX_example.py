@@ -9,7 +9,7 @@ if rc_psu_available:
     import ea_psu_controller
     # more information on https://pypi.org/project/ea-psu-controller/
 
-    ps_com_port = 'COM4'
+    ps_com_port = 'COM3'
     out_voltage = 0
     ps_name = ea_psu_controller.PsuEA.PSU_DEVICE_LIST_WIN
     print(f'Power Supply name: {ps_name}')
