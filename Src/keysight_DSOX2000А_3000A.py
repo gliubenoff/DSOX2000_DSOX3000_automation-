@@ -26,7 +26,7 @@ class Oscilloscope:
         report = self.unit.query(cmd_str)
         return report
 
-    def init(self):
+    def init(self):         # adjust oscilloscope general system parameters not related to measurement functionality
         print("Initializing the oscilloscope.\n")
         # set oscilloscope to its default settings:
         self.send('*RST')
@@ -72,7 +72,6 @@ class Oscilloscope:
         self.unit = self.rm.open_resource(address)
         device_id = self.query('*IDN?')
         print(device_id)
-        self.init()
 
     def __del__(self):
         print('Quit VinLin measurements.')
@@ -81,8 +80,29 @@ class Oscilloscope:
         self.unit.close()
         self.rm.close()
 
+    def log_measures(self, filename, path, results):  # reports measured values in plain text file
+        filepath = path + filename
+        log = open(filepath, 'a')
 
-class I2C(Oscilloscope):
+        # write test title in the log file and then remove it not to be send to oscilloscope:
+        test_title = results['Test title']
+        log.write(f'{test_title}\n\n')
+        print(f'{test_title}\n')   # show test title in console. Remove if not necessary
+        results.pop('Test title')
+
+        # poll the oscilloscope results with the rest queries:
+        for i in results.keys():
+            # query the unit's video buffer, transfer it as binary stream in bytes and record it into the opened file:
+            value = self.query(f'{results[i]}')
+            log.write(f'{i}: {value}')
+            print(f'{i}: {value}')    # show results in console. Remove if not necessary
+
+        log.write('\n\n')   # add two empty lines to separate next test results
+        log.close()
+        results.clear()    # flush the query buffer
+
+
+class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
     def __init__(self, address):
         super().__init__(address)
@@ -93,6 +113,7 @@ class I2C(Oscilloscope):
 
     def set_unit_for_i2c(self):
         # set oscilloscope
+        self.init()
         # setup oscilloscope or this particular test
         # setting oscilloscope channels common settings
         # turn required channels ON, keep others OFF:
@@ -108,11 +129,11 @@ class I2C(Oscilloscope):
         # setting Y parameters
         # channel 1 specific settings
         self.send(':CHANnel1:SCALe 0.25')                       # 250mV/div
-        self.send(':CHANnel1:OFFSet 0.875')                         # offset with 1V to measure full scale
+        self.send(':CHANnel1:OFFSet 0.875')                     # offset with 1V to measure full scale
 
         # channel 2 specific settings
         self.send(':CHANnel2:SCALe 0.25')                       # 250mV/div
-        self.send(':CHANnel2:OFFSet 0.875')                         # offset with 1V to measure full scale
+        self.send(':CHANnel2:OFFSet 0.875')                     # offset with 1V to measure full scale
 
         # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
         self.send(':MEASure:SOURce CHANnel1')
@@ -126,7 +147,7 @@ class I2C(Oscilloscope):
         # set 250ns/div for 1MHz bit time
         self.send(':TIMebase:SCALe 0.00000025')                 # units/div [sec]; main window horizontal scale
         # set the time reference to one division from the left side of the screen:
-        self.send(':TIMebase:REFerence RIGHt')                   # options: LEFT | CENTer | RIGHt
+        self.send(':TIMebase:REFerence RIGHt')                  # options: LEFT | CENTer | RIGHt
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
         int(self.query(':TER?'))  # read trigger event register to clear it
         self.send(':RUN')
@@ -366,7 +387,7 @@ class I2C(Oscilloscope):
         self.results['Test title'] = 'I2C Bus Free Time'  # provide test name to ease log readability
         self.results['I2C Bus Free Time tBUF'] = ':MEASure:DELay?'
 
-    def get_measured_values(self, filename, path):
+    def get_measured_values(self, filename, path):  # reports measured values in plain text file
         filepath = path + filename
         log = open(filepath, 'a')
 
@@ -386,3 +407,109 @@ class I2C(Oscilloscope):
         log.write('\n\n')   # add two empty lines to separate next test results
         log.close()
         self.results.clear()    # flush the query buffer
+
+
+class Power(Oscilloscope):     # generic measurements with oscilloscope
+    def __init__(self, address):
+        super().__init__(address)
+
+        # prepare oscilloscope queries to get the results in a text log file
+        # use dictionary in order to allow labels for the log file readability
+        self.results = {}   # Note: dictionary type does not allow duplicate entries.
+
+    def set_unit_v_meas(self):
+        # set oscilloscope
+        self.init()
+        # setup oscilloscope or this particular test
+        # setting oscilloscope channels common settings
+        # turn required channels ON, keep others OFF:
+        self.send(':CHANnel1:DISPlay ON')
+        self.send(':CHANnel2:DISPlay OFF')
+        self.send(':CHANnel3:DISPlay OFF')
+        self.send(':CHANnel4:DISPlay OFF')
+        # set proper labels on the ON channels and display them:
+        self.send(':CHANnel1:LABel "V_OUT"')
+        self.send(':DISPlay:LABel ON')
+
+        # # setting Y parameters
+        # channel 1 specific settings
+        self.send(':CHANnel1:COUPling DC')                      # options AC | DC
+
+        # channel 2 specific settings
+        self.send(':CHANnel2:COUPling DC')                      # options AC | DC
+
+        # channel 3 specific settings
+        self.send(':CHANnel3:COUPling DC')                      # options AC | DC
+
+        # channel 4 specific settings
+        self.send(':CHANnel4:COUPling DC')                      # options AC | DC
+
+        # setting X parameters
+        self.send(':TIMebase:MODE MAIN')                        # timebase mode: MAIN, WINDow, XY, ROLL
+        # set 250ns/div for 1MHz bit time
+        self.send(':TIMebase:SCALe 0.0025')                     # units/div [sec]; main window horizontal scale
+        # set the time reference to one division from the left side of the screen:
+        self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
+
+        # setting acquisition mode
+        self.send(':TRIGger:SWEep AUTO')                        # options: AUTO | NORMal
+        self.send(':ACQuire:TYPE HRESolution')                  # options: NORMal | AVERage | HRESolution | PEAK
+
+        # clear trigger event register
+        # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
+        int(self.query(':TER?'))  # read trigger event register to clear it
+
+        # set run mode
+        self.send(':RUN')
+
+    def set_meas_dc(self, expected_voltage):
+        # setting Y parameters
+        # channel 1 specific settings
+        v_per_div = expected_voltage/6                          # expand the expected voltage over 6 grid divisions
+        offset = 3 * v_per_div                                  # offset the channel 0 by 3 grid divisions
+        self.send(f':CHANnel1:SCALe {v_per_div}')               # 250mV/div
+        self.send(f':CHANnel1:OFFSet {offset}')                 # offset with 1V to measure full scale
+
+        # setup measurement
+        self.send(':MEASure:CLEar')
+        self.send(':MEASure:VRMS DISPlay,DC,CHANnel1')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'V_DC'  # provide test name to ease log readability
+        self.results['V_DC'] = ':MEASure:VRMS? DISPlay,DC,CHANnel1'
+
+    def set_meas_ac(self, expected_voltage):
+        self.send(':CHANnel1:COUPling AC')
+
+        self.send(':CHANnel1:SCALe 20mV')                       # 20mV/div
+        self.send(f':CHANnel1:OFFSet 0')                        # set the voltage to middle screen
+
+        # set trigger
+        # dummy set edge trigger to do magic settings...
+        self.send(':TRIGger:MODE EDGE')
+        self.send(':TRIGger:EDGE:SOURce CHANnel1')
+        self.send(f':TRIGger:EDGE:LEVel {expected_voltage},CHANnel1')
+
+        # setup measurement
+        self.send(':MEASure:CLEar')
+        self.send(':MEASure:VPP')   # DISPlay,AC,CHANnel1')
+
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = 'V_AC'  # provide test name to ease log readability
+        self.results['V_AC'] = ':MEASure:VPP?'      # DISPlay,AC,CHANnel1'
+
+    def set_meas_load_step(self):
+        pass
+
+    def set_meas_efficiency(self):
+        pass
+
+    def set_meas_sw_waveform(self):
+        pass
+
+    def set_meas_peak_current(self):
+        pass
+
+
+
+
