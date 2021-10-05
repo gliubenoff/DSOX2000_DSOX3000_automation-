@@ -13,9 +13,10 @@ class Oscilloscope:
         pass
 
     def send(self, cmd_str):
+        self.unit.write(cmd_str)
         for retry in range(3):
             self.unit.write(cmd_str)
-            # time.sleep(0.25)
+            time.sleep(0.5)
             if int(self.unit.query('*OPC?')) == 1:
                 # print(f'CMD {cmd_str} sent at {retry} try.')
                 break
@@ -38,7 +39,7 @@ class Oscilloscope:
         # # When you perform a default setup, some user settings (like preferences) remain unchanged.
 
         # basic settings:
-        self.send(':SAVE:IMAGe:FORMat PNG')
+        self.send(':SAVE:IMAGe:FORMat BMP')
         self.send(':SAVE:IMAGe:FACTors OFF')
         self.send(':SAVE:IMAGe:INKSaver OFF')
         self.send(':SAVE:IMAGe:PALette COLor')
@@ -64,6 +65,19 @@ class Oscilloscope:
         print(unit_triggered)
         self.send(':STOP')
 
+    def channel_to_str(self, channel_id=1):
+        return self.channel_map.get(channel_id)
+
+    def set_channel_scale(self, expected_voltage, channel_id=1):
+        channel = self.channel_to_str(channel_id)
+
+        # setting Y parameters
+        # channel 1 specific settings
+        v_per_div = expected_voltage/6                          # expand the expected voltage over 6 grid divisions
+        offset = 3 * v_per_div                                  # offset the channel 0 by 3 grid divisions
+        self.send(f':{channel}:SCALe {v_per_div}')               # 250mV/div
+        self.send(f':{channel}:OFFSet {offset}')                 # offset with 1V to measure full scale
+
     def __init__(self, address):
         # address can be obtained from the device itself pressing Utility -> IO. VISA address will be displayed in
         # a new window. Pass it as string when creating the object or create variable. Address variable example:
@@ -72,6 +86,13 @@ class Oscilloscope:
         self.unit = self.rm.open_resource(address)
         device_id = self.query('*IDN?')
         print(device_id)
+
+        self.channel_map = {
+            1: 'CHANnel1',
+            2: 'CHANnel2',
+            3: 'CHANnel3',
+            4: 'CHANnel4'
+        }
 
     def __del__(self):
         print('Quit VinLin measurements.')
@@ -92,7 +113,6 @@ class Oscilloscope:
 
         # poll the oscilloscope results with the rest queries:
         for i in results.keys():
-            # query the unit's video buffer, transfer it as binary stream in bytes and record it into the opened file:
             value = self.query(f'{results[i]}')
             log.write(f'{i}: {value}')
             print(f'{i}: {value}')    # show results in console. Remove if not necessary
@@ -104,8 +124,24 @@ class Oscilloscope:
 
 class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
-    def __init__(self, address):
+    def __init__(self, address):        # ToDo: add parameter baudrate to calculate timing parameters and parametrize
         super().__init__(address)
+
+        # set bit time for glitch trigger:
+        self.i2c_speed = 100000       # [Hz]
+        self.bit_time_nom = 1/self.i2c_speed    # [sec]
+        self.bit_time_max = 1.2 * self.bit_time_nom     # [sec]; nom + 20%
+        self.bit_time_min = 0.8 * self.bit_time_nom     # [sec]; nom - 20%
+
+        # define timebase scales:
+        # ms = 1/1000
+        us = 1/1000000
+        ns = 1/1000000000
+        self.tbase_400us = 400*us           # [sec]
+        self.tbase_400ns = 400*ns           # [sec]
+
+        # provide trigger level
+        self.trig_lvl = 1       # [V]
 
         # prepare oscilloscope queries to get the results in a text log file
         # use dictionary in order to allow labels for the log file readability
@@ -122,18 +158,26 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         self.send(':CHANnel3:DISPlay OFF')
         self.send(':CHANnel4:DISPlay OFF')
         # set proper labels on the ON channels and display them:
-        self.send(':CHANnel1:LABel "SCL"')
-        self.send(':CHANnel2:LABel "SDA"')
+        self.send(':CHANnel1:LABel "VC_I2C_SCL"')
+        self.send(':CHANnel2:LABel "VC_I2C_SDA"')
         self.send(':DISPlay:LABel ON')
 
         # setting Y parameters
         # channel 1 specific settings
-        self.send(':CHANnel1:SCALe 0.25')                       # 250mV/div
-        self.send(':CHANnel1:OFFSet 0.875')                     # offset with 1V to measure full scale
+        # self.send(':CHANnel1:SCALe 0.25')                       # 250mV/div
+        self.send(':CHANnel1:SCALe 1')                       # 250mV/div
+        # self.send(':CHANnel1:OFFSet 0.875')                     # offset with 1V to measure full scale
+        self.send(':CHANnel1:OFFSet 0')                     # offset with 1V to measure full scale
+        # self.send(':CHANnel1:BWLimit ON')                       # options ON | OFF
+        self.send(':CHANnel1:BWLimit OFF')                       # options ON | OFF
 
         # channel 2 specific settings
-        self.send(':CHANnel2:SCALe 0.25')                       # 250mV/div
-        self.send(':CHANnel2:OFFSet 0.875')                     # offset with 1V to measure full scale
+        # self.send(':CHANnel2:SCALe 0.25')                       # 250mV/div
+        self.send(':CHANnel2:SCALe 1')                       # 250mV/div
+        # self.send(':CHANnel2:OFFSet 0.875')                     # offset with 1V to measure full scale
+        self.send(':CHANnel2:OFFSet 3.5')                     # offset with 1V to measure full scale
+        # self.send(':CHANnel2:BWLimit ON')                       # options ON | OFF
+        self.send(':CHANnel2:BWLimit OFF')                       # options ON | OFF
 
         # make sure lower, middle, upper measurement are 30%, 50%, 70% for each used channel:
         self.send(':MEASure:SOURce CHANnel1')
@@ -143,13 +187,21 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
         # setting X parameters
         self.send(':TIMebase:MODE MAIN')                        # timebase mode: MAIN, WINDow, XY, ROLL
-        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         # set 250ns/div for 1MHz bit time
-        self.send(':TIMebase:SCALe 0.00000025')                 # units/div [sec]; main window horizontal scale
+        # self.send(':TIMebase:SCALe 0.00000025')                 # units/div [sec]; main window horizontal scale
+        self.send(':TIMebase:SCALe 0.0000025')                 # 100kHz units/div [sec]; main window horizontal scale
         # set the time reference to one division from the left side of the screen:
         self.send(':TIMebase:REFerence RIGHt')                  # options: LEFT | CENTer | RIGHt
+
+        # set trigger settings
+        self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
+        self.send(':TRIGger:EDGE:COUPling DC')                  # options AC | DC | LFReject
+        self.send(':TRIGger:HFReject OFF')                      # options: ON | OFF; interferes with LFReject above
+        # self.send(':TRIGger:NREJect ON')                        # options: ON | OFF
+        self.send(':TRIGger:NREJect OFF')                        # options: ON | OFF
+
         # ToDo: implement better way of clearing TER bit in status register to avoid warning "local variable not used"
-        int(self.query(':TER?'))  # read trigger event register to clear it
+        # int(self.query(':TER?'))  # read trigger event register to clear it
         self.send(':RUN')
 
     def set_trig_i2c_start(self):
@@ -160,13 +212,13 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         # dummy set edge trigger to do magic settings...
         self.send(':TRIGger:MODE EDGE')
         self.send(':TRIGger:EDGE:SOURce CHANnel1')
-        self.send(':TRIGger:EDGE:LEVel 1.5,CHANnel1')
+        self.send(f':TRIGger:EDGE:LEVel {self.trig_lvl},CHANnel1')
         # set the correct pattern trigger settings:
         # self.send(':TRIGger:SWEep NORMal')                      # set acquisition mode to NORMAL
         self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1FXX"')                    # I2C Start or Repeated Start condition
-        self.send(':TRIGger:LEVel 1.5,CHANnel2')                  # set trigger level to 1V for CH1
+        self.send(f':TRIGger:LEVel {self.trig_lvl},CHANnel2')                  # set trigger level to 1V for CH1
         # self.send(':SINGle')
 
     def set_trig_i2c_restart_sbus(self):
@@ -188,11 +240,11 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
         # set trigger
         self.send(':TRIGger:MODE GLITch')
-        self.send(':TRIGger:GLITch:LEVel 1')
+        self.send(f':TRIGger:GLITch:LEVel {self.trig_lvl}')
         self.send(':TRIGger:GLITch:SOURce CHANnel1')
         self.send(':TRIGger:GLITch:POLarity POSitive')
         self.send(':TRIGger:GLITch:QUALifier RANGe')
-        self.send(':TRIGger:GLITch:RANGe 1.1us,520ns')
+        self.send(f':TRIGger:GLITch:RANGe {self.bit_time_max},{self.bit_time_min}')
         # self.send(':SINGle')
 
     def set_trig_i2c_stop(self):
@@ -200,22 +252,35 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         # dummy set edge trigger to do magic settings...
         self.send(':TRIGger:MODE EDGE')
         self.send(':TRIGger:EDGE:SOURce CHANnel1')
-        self.send(':TRIGger:EDGE:LEVel 1.5,CHANnel1')
+        self.send(f':TRIGger:EDGE:LEVel {self.trig_lvl},CHANnel1')
         # set the correct pattern trigger settings:
         self.send(':TRIGger:MODE PATTern')                      # options EDGE | GLITch | PATTern | TV
         self.send(':TRIGger:PATTern:FORMat ASCII')
         self.send(':TRIGger:PATTern "1RXX"')                    # I2C Stop
-        self.send(':TRIGger:LEVel 1.5,CHANnel2')                # set trigger level to 1.5V for CH2
+        self.send(f':TRIGger:LEVel {self.trig_lvl},CHANnel2')                # set trigger level to 1.5V for CH2
         # self.send(':SINGle')
 
     def set_trig_i2c_sda_bit(self):
         # set trigger
         self.send(':TRIGger:MODE GLITch')
         self.send(':TRIGger:GLITch:SOURce CHANnel2')
-        self.send(':TRIGger:GLITch:LEVel 1')
+        self.send(f':TRIGger:GLITch:LEVel {self.trig_lvl}')
         self.send(':TRIGger:GLITch:POLarity POSitive')
-        self.send(':TRIGger:GLITch:LESSthan 1.1us')
+        self.send(f':TRIGger:GLITch:LESSthan {self.bit_time_max}')
         # self.send(':SINGle')
+
+    def set_trig_Nth_edge(self, num_edges=1):
+        # set trigger
+        # dummy set edge trigger to do magic settings...
+        self.send(':TRIGger:MODE EDGE')
+        self.send(':TRIGger:EDGE:SOURce CHANnel1')
+        self.send(f':TRIGger:EDGE:LEVel {self.trig_lvl},CHANnel1')
+        # set the correct pattern trigger settings:
+        self.send(':TRIGger:MODE EBURst')
+        self.send(':TRIGger:EBURst:SOURce CHANnel1')
+        self.send(':TRIGger:EBURst:SLOPe NEGative')
+        self.send(':TRIGger:EBURst:IDLE 0.000009')      # must be greater than half SCK_Period
+        self.send(f':TRIGger:EBURst:COUNt {num_edges}')
 
     def set_meas_rise_times(self):
         self.send(':MEASure:CLEar')
@@ -269,10 +334,13 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
         elif driver == 'slave':
             # update X settings
-            self.send(':TIMebase:SCALe 0.000002')  # units/div [sec]; main window horizontal scale
+            # self.send(':TIMebase:SCALe 0.000002')  # units/div [sec]; main window horizontal scale
+            self.send(':TIMebase:SCALe 0.00002')  # 100kHz units/div [sec]; main window horizontal scale
             self.send(':TIMebase:MODE WINDow')  # show zoom window
-            self.send(':TIMebase:WINDow:POSition 0.0000096')  # zoom at 9.6us from tigger pos
-            self.send(':TIMebase:WINDow:SCALe 0.0000001')  # 100ns/div zoom window scale
+            # self.send(':TIMebase:WINDow:POSition 0.0000103')  # zoom at 10.3us from tigger pos
+            self.send(':TIMebase:WINDow:POSition 0.000086')  # zoom at 96us from tigger pos
+            # self.send(':TIMebase:WINDow:SCALe 0.0000001')  # 100ns/div zoom window scale
+            self.send(':TIMebase:WINDow:SCALe 0.000001')  # 1000ns/div zoom window scale
             # setup measurement
             self.send(':MEASure:CLEar')
             self.send(':MEASure:VRMS DISPlay,DC,CHANnel2')
@@ -372,7 +440,8 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_i2c_bus_free_time(self):
         # to be used with set_trig_i2c_stop()
         # update X settings
-        self.send(':TIMebase:SCALe 0.0000005')  # units/div [sec]; main window horizontal scale
+        # self.send(':TIMebase:SCALe 0.0000005')  # 1MHz units/div [sec]; main window horizontal scale
+        self.send(':TIMebase:SCALe 0.000005')  # 100kHz units/div [sec]; main window horizontal scale
         self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
         self.send(':TIMebase:POSition -0.0000005')   # time interval between the trigger event and the display point
 
@@ -447,7 +516,7 @@ class Power(Oscilloscope):     # generic measurements with oscilloscope
         # setting X parameters
         self.send(':TIMebase:MODE MAIN')                        # timebase mode: MAIN, WINDow, XY, ROLL
         # set 250ns/div for 1MHz bit time
-        self.send(':TIMebase:SCALe 0.0025')                     # units/div [sec]; main window horizontal scale
+        self.send(':TIMebase:SCALe 0.050')                      # units/div [sec]; main window horizontal scale
         # set the time reference to one division from the left side of the screen:
         self.send(':TIMebase:REFerence LEFT')                   # options: LEFT | CENTer | RIGHt
 
@@ -462,21 +531,16 @@ class Power(Oscilloscope):     # generic measurements with oscilloscope
         # set run mode
         self.send(':RUN')
 
-    def set_meas_dc(self, expected_voltage):
-        # setting Y parameters
-        # channel 1 specific settings
-        v_per_div = expected_voltage/6                          # expand the expected voltage over 6 grid divisions
-        offset = 3 * v_per_div                                  # offset the channel 0 by 3 grid divisions
-        self.send(f':CHANnel1:SCALe {v_per_div}')               # 250mV/div
-        self.send(f':CHANnel1:OFFSet {offset}')                 # offset with 1V to measure full scale
+    def meas_dc(self, channel_id=1):
+        channel = self.channel_to_str(channel_id)
 
         # setup measurement
         self.send(':MEASure:CLEar')
-        self.send(':MEASure:VRMS DISPlay,DC,CHANnel1')
+        self.send(f':MEASure:VRMS DISPlay,DC,{channel}')
 
         # fill the queries from this measure to ask for results after trigger:
-        self.results['Test title'] = 'V_DC'  # provide test name to ease log readability
-        self.results['V_DC'] = ':MEASure:VRMS? DISPlay,DC,CHANnel1'
+        self.results['Test title'] = f'CH_{channel_id}_V_DC'  # provide test name to ease log readability
+        self.results['V_DC'] = f':MEASure:VRMS? DISPlay,DC,{channel}'
 
     def set_meas_ac(self, expected_voltage):
         self.send(':CHANnel1:COUPling AC')
@@ -493,15 +557,19 @@ class Power(Oscilloscope):     # generic measurements with oscilloscope
         # setup measurement
         self.send(':MEASure:CLEar')
         self.send(':MEASure:VPP')   # DISPlay,AC,CHANnel1')
+        self.send(':MEASure:VRMS DISPlay,DC,CHANnel1')
 
         # fill the queries from this measure to ask for results after trigger:
         self.results['Test title'] = 'V_AC'  # provide test name to ease log readability
         self.results['V_AC'] = ':MEASure:VPP?'      # DISPlay,AC,CHANnel1'
+        self.results['V_DC'] = ':MEASure:VRMS? DISPlay,DC,CHANnel1'
 
     def set_meas_load_step(self):
+        # not possible at this level because electronic / passive load with remote control is required
         pass
 
     def set_meas_efficiency(self):
+        # not possible at this level because electronic / passive load with remote control is required
         pass
 
     def set_meas_sw_waveform(self):
@@ -510,6 +578,16 @@ class Power(Oscilloscope):     # generic measurements with oscilloscope
     def set_meas_peak_current(self):
         pass
 
+    def get_meas_all(self):
+        # fill the queries from this measure to ask for results after trigger:
+        self.results['Test title'] = f'V_DC'  # provide test name to ease log readability
+        self.results['V_DC'] = f':MEASure:VRMS? DISPlay,DC,CHANnel1'
+        # self.results['V_DC'] = f':MEASure:VRMS? DISPlay,DC,CHANnel2'
+        self.results['V_DC'] = f':MEASure:VRMS? DISPlay,DC,CHANnel3'
+        # self.results['V_DC'] = f':MEASure:VRMS? DISPlay,DC,MATH'
 
-
-
+    # def get_meas_dc_label(self, label):
+    #     # fill the queries from this measure to ask for results after trigger:
+    #     # self.results['Test title'] = f'V_DC'  # provide test name to ease log readability
+    #     # self.results[f'V_DC_{label}V'] = f':MEASure:VRMS? DISPlay,DC,CHANnel1'
+    #     pass
