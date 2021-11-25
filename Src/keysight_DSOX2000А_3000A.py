@@ -1,7 +1,5 @@
 # This is library with control functions for oscilloscope Keysight DSOX2000A series
 # based on article https://oshgarage.com/keysight-automation-with-python/
-import time
-
 import pyvisa as visa
 from time import sleep
 import sys
@@ -16,7 +14,7 @@ class Oscilloscope:
         self.unit.write(cmd_str)
         for retry in range(3):
             self.unit.write(cmd_str)
-            time.sleep(0.5)
+            sleep(0.5)
             if int(self.unit.query('*OPC?')) == 1:
                 # print(f'CMD {cmd_str} sent at {retry} try.')
                 break
