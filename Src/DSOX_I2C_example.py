@@ -1,4 +1,4 @@
-import Src.keysight_DSOX2000А_3000A as keysight_DSOX2000А_3000A
+import Src.keysight_DSOX2000A_3000A as keysight_DSOX2000А_3000A
 import sys
 import os
 import time
