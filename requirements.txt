@@ -1,0 +1,3 @@
+pyvisa==1.11.3
+ea_psu_controller==1.1.0
+pdoc==8.0.1

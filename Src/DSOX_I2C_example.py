@@ -1,3 +1,7 @@
+"""
+This module is an example usage of class I2C. It represents complete I2C bus analysis for the following tests:
+1. test 1
+"""
 import Src.keysight_DSOX2000A_3000A as keysight_DSOX2000А_3000A
 import sys
 import os
