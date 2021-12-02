@@ -11,7 +11,7 @@ etc.
 
 Class I2C inherits class Oscilloscope in order to take advantage of its user-friendly methods and on its side
 introduces highly specific methods required for evaluating I2C bus parameters. Practical usage of this class is provided
-in module DSOX_I2C_example.py
+in module `DSOX_I2C_example.py`
 
 Class Power also inherits class Oscilloscope and is considered to provide specific methods for describing PSU
 validation tests.
@@ -53,8 +53,8 @@ class Oscilloscope:
 
     def send(self, cmd_str):
         """
-        This method is straight forward: it sends the input variable *cmd_str* as it is.
-        *cmd_str* can be any command correctly compiled from Keysight Command Expert tool in the format
+        This method is straight forward: it sends the input variable `cmd_str` as it is.
+        `cmd_str` can be any command correctly compiled from Keysight Command Expert tool in the format
         ':SAVE:IMAGe:PALette COLor' (with the ' to note it is type string).
 
         **Note:** there is a built-in retry for 3 times if oscilloscope does not receive the command first time.
@@ -75,20 +75,22 @@ class Oscilloscope:
     def query(self, cmd_str):
         """
         As the name suggests this method queries the oscilloscope for different parameter settings or measurement
-        results by the input variable *cmd_str*.
-        *cmd_str* can be any query correctly compiled from Keysight Command Expert tool in the format
+        results by the input variable `cmd_str`.
+        `cmd_str` can be any query correctly compiled from Keysight Command Expert tool in the format
         '*OPC?' or '*TER' or ':MEASure:VPP?' (with the ' to note it is type string).
 
         Method returns the oscilloscope reply as string. Type casting is required if math or other data processing
         of the result is required.
         """
         report = self.unit.query(cmd_str)
+        """Document instance variable `report` post-variable"""
+
         return report
 
     def get_screen(self, filename, path):
         """
         As the name suggests this method fetches the image displayed on the oscilloscope screen and writes it down
-        to a file with *filename* at local directory under *path* both supplied as arguments. Method checks if the
+        to a file with `filename` at local directory under `path` both supplied as arguments. Method checks if the
         operation is complete before closing the file on the computer.
         """
         # query the image type and palette if previously set:
@@ -124,8 +126,9 @@ class Oscilloscope:
 
     def channel_to_str(self, channel_id=1):
         """
-        Accepts *channel_id* as integer value and returns the precise name as per Keysight specification.
-        For example if *1* is provided *'CHANnel1'* string is returned etc.
+        Accepts `channel_id` as integer value and returns the precise name as per Keysight specification.
+        For example if *1* is provided *'CHANnel1'* string is returned etc. Correct syntax is provided in `channel_map`
+        dictionary.
         """
         return self.channel_map.get(channel_id)
 
@@ -183,8 +186,8 @@ class Oscilloscope:
 
     def log_measures(self, filename, path, results):
         """
-        Reports measured values in plain text file. file name provided as input variable *filename* and the path to
-        write to is provided as *path*.
+        Reports measured values in plain text file. file name provided as input variable `filename` and the path to
+        write to is provided as `path`.
         """
         filepath = path + filename
         log = open(filepath, 'a')
@@ -231,6 +234,9 @@ class Oscilloscope:
             3: 'CHANnel3',
             4: 'CHANnel4'
         }
+        """`channel_map` variable is dictionary that maps a number to correct string for passing it to the 
+        oscilloscope as argument in commands. Extracting data from this dictionary is handled in `channel_to_str()`
+        method."""
 
     def __del__(self):
         """
@@ -273,6 +279,7 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
         # set bit time for glitch trigger:
         self.i2c_speed = 100000       # [Hz]
+
         self.bit_time_nom = 1/self.i2c_speed    # [sec]
         self.bit_time_max = 1.2 * self.bit_time_nom     # [sec]; nom + 20%
         self.bit_time_min = 0.8 * self.bit_time_nom     # [sec]; nom - 20%
@@ -290,6 +297,11 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         # prepare oscilloscope queries to get the results in a text log file
         # use dictionary in order to allow labels for the log file readability
         self.results = {}   # Note: dictionary type does not allow duplicate entries.
+        """
+        `results` variable is a dictionary filled by *set_measure* methods and passed as argument to 
+        `Oscilloscope.log_measures()` and accessed directly by `I2C.get_measured_values()` method for writing it 
+        down in a text file.
+        """
 
     def set_unit_for_i2c(self):
         """It is like init() but sets oscilloscope for I2C measurements. Parameters altered are:
@@ -442,7 +454,7 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
     def set_trig_Nth_edge(self, num_edges=1):
         """
-        Sets the oscilloscope to burst trigger. Method takes argument *num_edges* for user to specify on which burst
+        Sets the oscilloscope to burst trigger. Method takes argument `num_edges` for user to specify on which burst
         edge oscilloscope shall sample the channels. Useful when fetching when slave drives the line (at ACK) or
         when second byte starts etc.
 
@@ -466,7 +478,7 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         """
         Sets the oscilloscope to measure SCL and SDA rise times.
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -483,7 +495,7 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         """
         Sets the oscilloscope to measure SCL and SDA fall times.
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -501,7 +513,7 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
         """
         Sets the oscilloscope to measure SCL and SDA rise **AND** fall times at once.
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -521,12 +533,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
     def set_meas_signal_levels(self, driver):
         """
-        Sets the oscilloscope to measure SCL and SDA signal levels. Method takes one argument *driver* denoting
+        Sets the oscilloscope to measure SCL and SDA signal levels. Method takes one argument `driver` denoting
         which line driver levels are measured (master's or slave's).
 
-        Argument *driver* is of type *string*, valid values: *'master'* or *'slave'*.
+        Argument `driver` is of type `string`, valid values: *'master'* or *'slave'*.
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -565,9 +577,9 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_scl_freq_duty(self):
         """
         Sets the oscilloscope to measure SCL frequency and duty cycle.
-        Suggested to use with *set_trig_i2c_sda_bit()*.
+        Suggested to use with `set_trig_i2c_sda_bit()`.
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -586,12 +598,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_sda_setup(self):
         """
         Sets the oscilloscope to measure SDA setup time.
-        Suggested to use with *set_trig_i2c_sda_bit()*.
+        Suggested to use with `set_trig_i2c_sda_bit()`.
 
         Good generic tutorial on time definition:
         https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -607,12 +619,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_sda_hold(self):
         """
         Sets the oscilloscope to measure SDA hold time.
-        Suggested to use with *set_trig_i2c_sda_bit()*.
+        Suggested to use with `set_trig_i2c_sda_bit()`.
 
         Good generic tutorial on time definition:
         https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -630,12 +642,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_restart_setup(self):
         """
         Sets the oscilloscope to measure Repeated Start setup time.
-        Suggested to use with *set_trig_i2c_restart()*.
+        Suggested to use with `set_trig_i2c_restart()`.
 
         Good generic tutorial on time definition:
         https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -652,12 +664,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_restart_hold(self):
         """
         Sets the oscilloscope to measure Repeated Start hold time.
-        Suggested to use with *set_trig_i2c_restart()*.
+        Suggested to use with `set_trig_i2c_restart()`.
 
         Good generic tutorial on time definition:
         https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -674,12 +686,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_stop_setup(self):
         """
         Sets the oscilloscope to measure Stop setup time.
-        Suggested to use with *set_trig_i2c_stop()*.
+        Suggested to use with `set_trig_i2c_stop()`.
 
         Good generic tutorial on time definition:
         https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -696,12 +708,12 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     def set_meas_i2c_bus_free_time(self):
         """
         Sets the oscilloscope to measure bus free time.
-        Suggested to use with *set_trig_i2c_stop()*.
+        Suggested to use with `set_trig_i2c_stop()`.
 
         Good generic tutorial on time definition:
         https://www.st.com/resource/en/application_note/dm00074956-i2c-timing-configuration-tool-for-stm32f3xxxx-and-stm32f0xxxx-microcontrollers-stmicroelectronics.pdf
 
-        Measurement results are of type *string* and fetched in a class variable 'results' that can be later saved
+        Measurement results are of type `string` and fetched in a class variable `results` that can be later saved
         in a text log file. If results not fetched at measurement completion they will be overwritten by other
         "set measurement" method.
         """
@@ -722,11 +734,11 @@ class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
 
     def get_measured_values(self, filename, path):
         """
-        Reports measured values stored in the class variable *results* filled during the "set measurement" methods
+        Reports measured values stored in the class variable `results` filled during the "set measurement" methods
         above and written in plain text file.
 
-        Method takes two arguments: *filename* and *path*. As the argument names implies the measured values will be
-        written in file *filename* on local computer's *path*.
+        Method takes two arguments: `filename` and `path`. As the argument names implies the measured values will be
+        written in file `filename` on local computer's `path`.
 
         *path* syntax example: results_path = 'C:\\Desktop\\Test_plan\\DV_Tests\\201_LIGHTSENSOR\\I2C\\'
 
