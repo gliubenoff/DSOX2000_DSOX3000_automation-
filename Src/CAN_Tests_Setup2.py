@@ -41,6 +41,7 @@ print(f'Connected to  {txt}')
 psu.remote_on()
 time.sleep(0.5)
 
+results_path = f'C:\\Users\\glyubeno\\Desktop\\Volvo-Trucks\\Test_plan\\CAN\\VTNA-TestPlan\\2021-Nov\\CAN_BB2\\n40C\\'
 
 VBATT = [10, 28, 32]
 
@@ -114,20 +115,23 @@ for vbatt in VBATT:
 
     # set the filesystem path where the results will be stored:
     # NOTE: double \\ is required to escape the special character \.
-    results_path = f'C:\\Users\\glyubeno\\Desktop\\Volvo-Trucks\\Test_plan\\CAN\\VTNA-TestPlan\\2021-Nov\\CAN_BB1\\23C\\{vbatt}V\\'
+    res_path = results_path + f'{vbatt}V\\'
+    print(res_path)
+
     # if path does not exist then create it:
-    if os.path.exists(results_path):
+    if os.path.exists(res_path):
         pass
     else:
-        os.makedirs(results_path)
+        os.makedirs(res_path)
 
     psu.set_voltage(vbatt)
     time.sleep(slp_time)
 
-    measure_can.get_screen(can_levels, results_path)  # save oscilloscope screen to image file
+    measure_can.send(':STOP')
+    measure_can.get_screen(can_levels, res_path)  # save oscilloscope screen to image file
+    measure_can.send(':RUN')
 
 psu.set_voltage(VBATT[1])
-results_path = f'C:\\Users\\glyubeno\\Desktop\\Volvo-Trucks\\Test_plan\\CAN\\VTNA-TestPlan\\2021-Nov\\CAN_BB1\\23C\\'
 # **************************************************************************
 
 # **************************************************************************
@@ -154,7 +158,9 @@ log = open(filepath, 'a')
 log.write(measure_can.get_measurement_statistics('PWIDth', 100))
 log.close()
 
+measure_can.send(':STOP')
 measure_can.get_screen(can_bit_time, results_path)  # save oscilloscope screen to image file
+measure_can.send(':RUN')
 ###
 # Recessive bit time measurement:
 # switch trigger to get single recessive bit
@@ -172,7 +178,9 @@ log = open(filepath, 'a')
 log.write(measure_can.get_measurement_statistics('NWIDth', 100))
 log.close()
 
+measure_can.send(':STOP')
 measure_can.get_screen(can_bit_time, results_path)  # save oscilloscope screen to image file
+measure_can.send(':RUN')
 
 # **************************************************************************
 

@@ -223,10 +223,9 @@ class Oscilloscope:
         **Note:** oscilloscope provides the address on the screen in decimal numbers! Conversion to hex is required before
         passing the argument here!
         """
-        self.rm = visa.ResourceManager()
-        self.unit = self.rm.open_resource(address)
-        device_id = self.query('*IDN?')
-        print(device_id)
+        rm = visa.ResourceManager()
+        self.unit = rm.open_resource(address)
+        print(self.query('*IDN?'))
 
         self.channel_map = {
             1: 'CHANnel1',
@@ -243,12 +242,14 @@ class Oscilloscope:
         Destructor call. Put this at the end of each script or phase where oscilloscope connection needs
         to be released
         """
-        print('Quit VinLin measurements.')
+        print('Quit measurements.')
         # at the end of test session disconnect oscilloscope:
         # self.unit.clear()
-        self.unit.close()
-        self.rm.close()
-
+        try:
+            self.unit.close()
+            self.rm.close()
+        except Exception as e:
+            pass
 
 class I2C(Oscilloscope):    # assume CH1 = SCL, CH2 = SDA
     """

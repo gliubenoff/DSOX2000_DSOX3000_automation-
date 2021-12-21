@@ -12,7 +12,7 @@ address = 'USB0::0x0957::0x1798::MY59124127::0::INSTR'
 
 # set the filesystem path where the results will be stored:
 # NOTE: double \\ is required to escape the special character \.
-results_path = f'C:\\Users\\glyubeno\\Desktop\\Volvo-Trucks\\Test_plan\\CAN\\VTNA-TestPlan\\2021-Nov\\IMG\\CAN_INF\\'
+results_path = f'C:\\Users\\glyubeno\\Desktop\\Volvo-Trucks\\Test_plan\\CAN\\VTNA-TestPlan\\2021-Nov\\CAN_INF\\23C\\'
 # if path does not exist then create it:
 if os.path.exists(results_path):
     pass
@@ -85,17 +85,17 @@ measure_can.send(':FUNCtion:SOURce2 CHANnel2')
 measure_can.send(':MEASure:CLEar')
 measure_can.send(':MEASure:VPP MATH')
 
-# can_symmetry = 'CAN_Symmetry.bmp'
-# can_symmetry_log = 'CAN_Symmetry_Log.txt'
-#
-# # get statistics over 100 measurements
-# # this is intentionally built-in for oscilloscopes with no measurement statistics
-# filepath = results_path + can_symmetry_log
-# log = open(filepath, 'a')
-# log.write(measure_can.get_measurement_statistics('VPP', 100))
-# log.close()
-#
-# measure_can.get_screen(can_symmetry, results_path)  # save oscilloscope screen to image file
+can_symmetry = 'CAN_Symmetry.bmp'
+can_symmetry_log = 'CAN_Symmetry_Log.txt'
+
+# get statistics over 100 measurements
+# this is intentionally built-in for oscilloscopes with no measurement statistics
+filepath = results_path + can_symmetry_log
+log = open(filepath, 'a')
+log.write(measure_can.get_measurement_statistics('VPP', 100))
+log.close()
+
+measure_can.get_screen(can_symmetry, results_path)  # save oscilloscope screen to image file
 # **************************************************************************
 
 del measure_can
