@@ -5,7 +5,9 @@ In order to use this script and the methods installed you need to:
 1.1.1. If python console opens (lines start with '>>>') the installation went well.
 1.1.2. If python console doesn't open then command "python" needs to be called with its absolute path typically
 installed in C:\Users\<user>\AppData\Local\Programs\Python\Python<ver.No>
-2. Clone the repository to your local computer using git client of your choice.
+2. Clone the repository to your local computer using git client of your choice or
+2.1 go to https://github.com/gliubenoff/DSOX2000_DSOX3000_automation-/releases and download the associated archive
+under Assets menu. Decompress it in your favorite path.
 3. In command prompt (Windows) or Terminal (MacOS/Linux) navigate to the script folder and execute:
 python -m pip install -r requirements.txt
 This will install all the additionally required python packages.
