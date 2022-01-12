@@ -64,7 +64,7 @@ measure_i2c.set_trig_i2c_start()
 time.sleep(1)
 # turn on the DUT as the communication exists only on boot.
 # If bus is always busy comment the if statement
-psu.output_on()
+# psu.output_on()
 time.sleep(1)
 
 measure_i2c.get_trigger()  # poll the oscilloscope until trigger is found

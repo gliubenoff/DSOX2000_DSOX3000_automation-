@@ -30,7 +30,7 @@ II.3. Attach the power supply to the DUT
 
 III. Setup the script
 III.1. Find the oscilloscope USB address:
-		- On the oscilloscope press Unit -> I/O and write down the address. Note: address displayed on oscilloscope is in decimal and shall be converted to hex
+		- On the oscilloscope press Utility -> I/O and write down the address. Note: address displayed on oscilloscope is in decimal and shall be converted to hex
 		- Open Keysight Command Expert (if installed) and find the address of the attached instrument
 III.2. Open Src/DSOX_I2C_example.py with a text editor of your choice (Notepad, Notepad++, PyCharm, Eclipse etc. MS Word is not recommended although it might also work)
 III.3. Modify variable 'address' providing the current oscilloscope address. 
