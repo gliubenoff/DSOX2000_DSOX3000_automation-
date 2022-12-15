@@ -39,7 +39,7 @@ address = 'USB0::0x0957::0x17A4::MY53280562::0::INSTR'
 
 # set the filesystem path where the results will be stored
 # double \\ is required to escape the special character.
-results_path = 'C:\\Users\\glyubeno\\Desktop\\Volvo-Trucks\\Test_plan\\Unitary_Tests\\pdoc\\'
+results_path = 'C:\\Users\\user\\Desktop\\Unitary_Tests\\pdoc\\'
 
 # if path does not exist then create it:
 if os.path.exists(results_path):
