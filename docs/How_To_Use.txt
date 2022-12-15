@@ -14,24 +14,25 @@ This script fully evaluates I2C communication on HW point of view taking the fol
 11. I2C bus free time
 
 The script works only for standard mode: 100 kbit/s.
+How to use it for other modes read the "Advanced usage" section at the end.
 
 Before starting the script a bit of preparation is required:
 
 I. Equipment
-I.1. Oscilloscope Keysight DSOX2000A or DSOX3000A, 2 channels are enough
+I.1. Oscilloscope Keysight DSOX2000A or DSOX3000A, 2 channels are enough.
 I.2. Suitable power supply module.
-I.3. DUT
+I.3. DUT.
 
-II. Wire the setup
-II.1. Attach oscilloscope channel 1 to I2C SCL signal
-II.2. Attach oscilloscope channel 2 to I2C SDA signal
-II.3. Connect oscilloscope to PC/Laptop via USB cable
-II.3. Attach the power supply to the DUT
+II. Wire the setup.
+II.1. Attach oscilloscope channel 1 to I2C SCL signal.
+II.2. Attach oscilloscope channel 2 to I2C SDA signal.
+II.3. Connect oscilloscope to PC/Laptop via USB cable.
+II.3. Attach the power supply to the DUT.
 
-III. Setup the script
-III.1. Find the oscilloscope USB address:
-		- On the oscilloscope press Utility -> I/O and write down the address. Note: address displayed on oscilloscope is in decimal and shall be converted to hex
-		- Open Keysight Command Expert (if installed) and find the address of the attached instrument
+III. Setup the script.
+III.1. Find the oscilloscope USB address using one of the methods below:
+		- On the oscilloscope press Utility -> I/O and write down the address. Note: address displayed on oscilloscope is in decimal and shall be converted to hex.
+		- Open Keysight Command Expert (if installed) and find the address of the attached instrument.
 III.2. Open Src/DSOX_I2C_example.py with a text editor of your choice (Notepad, Notepad++, PyCharm, Eclipse etc. MS Word is not recommended although it might also work)
 III.3. Modify variable 'address' providing the current oscilloscope address. 
 III.4. Modify variable 'results_path' to point a location on the PC/Laptop where the results will be saved. Note: double \\ is used for hierarchy delimiter
@@ -42,11 +43,28 @@ IV.1. Ensure continuous I2C communication (See Note 4)
 IV.2. From command prompt (Windows)/Terminal (MAC OS, Linux) navigate to the script directory
 IV.3. Type "python DSOX_I2C_example.py"
 
-Notes: 
-1. The script expects continuous I2C communication in order to do its job. If you're measureing "one shot" communication such as PMIC initialization during startup 
+V. Notes:
+1. The script expects continuous I2C communication in order to do its job. If you're measuring "one shot" communication such as PMIC initialization during startup
 you need to constantly restart the DUT to keep the communication going.
 2. In some communications repeated start condition may not be implemented. If the script gets stuck waiting for it hit "force trigger" button on the oscilloscope. Then scrap the measurement result.
 3. If erratic measurements appear in the results back them all up and rerun the script. Single run takes approximately 2 minutes so it will not take much time.
 4. If the I2C bus is used only to initialize slaves during power up then supply needs to be toggled appropriately. For this reason 3 second delays are implemented after each measurement alowing the operator to restart the DUT.
-If this 3 sec. window is missed the script is supposed to wait trigger condition typially not found when no communication is present. Not recommended to rely on this as glitches during power up may produce false triggers.
-If EA-PS 2000-10b PSU is available it can be toggled from (another) script. Contact the author for assistance. 
+If this 3 sec. window is missed the script is supposed to wait trigger condition typically not found when no communication is present. Not recommended to rely on this as glitches during power up may produce false triggers.
+If EA-PS 2000-10b PSU is available it can be toggled from (another) script. Contact the author for assistance.
+
+VI. Advanced usage
+There are some I2C implementations that may have different signal level, clock frequency or even split data bytes transferred. In these cases the script can not be used without user interference.
+In order to use the script in one of these cases the best option to do so is run the script in debug mode and use the breakpoints to stop the execution. When the execution is paused manually adjust the oscilloscope image and
+then run it to the next breakpoint. This way all the oscilloscope settings will be done by the script and user will only spice it up to achieve the best result.
+
+Suitable breakpoint places are:
+    - For signal level adjustment stop the script before running the first test.
+    - After that each test has a line:
+            measure_i2c.get_trigger()
+        Place the breakpoint at the next line and you're good to go.
+
+The oscilloscope will be configured and trigger event will be found (tip: if oscilloscope can't find trigger by itself hit "Force trigger" button once and continue manually).
+Do whatever is necessary to obtain good waveform image. Move the breakpoint after the next get_trigger() line and run it from the debug tools using "Run to cursor" or "run to next breakpoint" or whatever similar option your
+debug tool allows you to use. The image set on the oscilloscope will be saved in the path specified with the image name specified initially.
+
+When all the tests are done head to the test report and fill it up with accurate measurements data. Enjoy your free time!
